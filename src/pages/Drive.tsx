@@ -205,6 +205,7 @@ export default function Drive() {
       {map && mission && targetPoint && flow !== 'select' && (
         <DriveScene
           points={map.points}
+          roads={map.roads}
           targetId={mission.facilityId}
           playing={playing && flow !== 'finish'}
           difficulty={mission.difficulty}

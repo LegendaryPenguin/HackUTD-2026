@@ -2,7 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Stars } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import type { DrivePoint } from '../../lib/driveMap';
+import { shortestPathIds, type DrivePoint, type DriveRoad } from '../../lib/driveMap';
 import type { DriveDifficulty } from '../../lib/driveMission';
 import type { CoachAllow } from './DriveCoach';
 
@@ -19,6 +19,7 @@ export type DriveTelemetry = {
 
 type SceneProps = {
   points: DrivePoint[];
+  roads: DriveRoad[];
   targetId: string | null;
   playing: boolean;
   difficulty: DriveDifficulty;
@@ -29,36 +30,111 @@ type SceneProps = {
 };
 
 function Ground() {
+  const grid = useMemo(() => {
+    const g = new THREE.GridHelper(420, 42, '#1a3340', '#0f222c');
+    g.position.y = 0.01;
+    const mats = Array.isArray(g.material) ? g.material : [g.material];
+    for (const m of mats) {
+      const mat = m as THREE.Material & { opacity?: number; transparent?: boolean };
+      mat.transparent = true;
+      mat.opacity = 0.35;
+    }
+    return g;
+  }, []);
+
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.04, 0]}>
         <planeGeometry args={[560, 560]} />
-        <meshStandardMaterial color="#081210" roughness={1} metalness={0} />
+        <meshStandardMaterial color="#0a1518" roughness={0.98} metalness={0.02} />
       </mesh>
-      {/* faint map grid */}
-      {Array.from({ length: 29 }, (_, i) => {
-        const v = -140 + i * 10;
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.02, 0]}>
+        <circleGeometry args={[210, 64]} />
+        <meshStandardMaterial color="#102018" roughness={0.95} metalness={0.04} />
+      </mesh>
+      <primitive object={grid} />
+      {/* scrub / caliche patches */}
+      {Array.from({ length: 55 }, (_, i) => {
+        const a = (i * 2.713) % (Math.PI * 2);
+        const r = 12 + ((i * 11) % 170);
         return (
-          <group key={i}>
-            <mesh position={[0, 0.01, v]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[280, 0.08]} />
-              <meshBasicMaterial color="#143028" transparent opacity={0.35} />
-            </mesh>
-            <mesh position={[v, 0.01, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-              <planeGeometry args={[280, 0.08]} />
-              <meshBasicMaterial color="#143028" transparent opacity={0.35} />
-            </mesh>
-          </group>
+          <mesh key={i} position={[Math.cos(a) * r, 0.03, Math.sin(a) * r]} rotation={[-Math.PI / 2, 0, a * 0.4]}>
+            <circleGeometry args={[0.9 + (i % 6) * 0.4, 7]} />
+            <meshStandardMaterial color={i % 3 === 0 ? '#1a2c22' : '#15241c'} roughness={1} />
+          </mesh>
         );
       })}
-      {/* scrub patches */}
-      {Array.from({ length: 48 }, (_, i) => {
-        const a = (i * 2.17) % (Math.PI * 2);
-        const r = 22 + (i * 9) % 160;
+      {/* distant mesa silhouettes */}
+      {[
+        [90, -8, -120, 55, 14],
+        [-110, -6, -95, 40, 11],
+        [130, -10, 40, 48, 16],
+        [-140, -9, 70, 60, 13],
+      ].map(([x, y, z, w, h], i) => (
+        <mesh key={`mesa-${i}`} position={[x, y + h / 2, z]} castShadow>
+          <boxGeometry args={[w, h, w * 0.45]} />
+          <meshStandardMaterial color="#0d1820" roughness={1} metalness={0.05} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function RoadMesh({
+  road,
+  active,
+}: {
+  road: DriveRoad;
+  active: boolean;
+}) {
+  const width = road.kind === 'arterial' ? 5.2 : road.kind === 'spur' ? 3.8 : 2.4;
+  const mid = useMemo(() => {
+    const dx = road.to[0] - road.from[0];
+    const dz = road.to[1] - road.from[1];
+    const len = Math.hypot(dx, dz);
+    const angle = Math.atan2(dx, dz);
+    return {
+      len,
+      angle,
+      cx: (road.from[0] + road.to[0]) / 2,
+      cz: (road.from[1] + road.to[1]) / 2,
+      dx,
+      dz,
+    };
+  }, [road]);
+
+  const dashes = useMemo(() => {
+    if (road.kind === 'lease' || mid.len < 8) return [] as number[];
+    const n = Math.floor(mid.len / 5);
+    return Array.from({ length: n }, (_, i) => (i + 0.5) / n);
+  }, [mid.len, road.kind]);
+
+  return (
+    <group>
+      <mesh position={[mid.cx, active ? 0.05 : 0.03, mid.cz]} rotation={[-Math.PI / 2, 0, -mid.angle]} receiveShadow>
+        <planeGeometry args={[width + (active ? 0.8 : 0), mid.len]} />
+        <meshStandardMaterial
+          color={active ? '#243848' : road.kind === 'arterial' ? '#1a2834' : '#16222c'}
+          roughness={0.82}
+          metalness={active ? 0.28 : 0.12}
+          emissive={active ? '#1a4050' : '#000000'}
+          emissiveIntensity={active ? 0.45 : 0}
+        />
+      </mesh>
+      {/* shoulder glow for active route */}
+      {active && (
+        <mesh position={[mid.cx, 0.06, mid.cz]} rotation={[-Math.PI / 2, 0, -mid.angle]}>
+          <planeGeometry args={[width + 2.4, mid.len]} />
+          <meshBasicMaterial color="#5ec8d8" transparent opacity={0.08} depthWrite={false} />
+        </mesh>
+      )}
+      {dashes.map((t, i) => {
+        const x = road.from[0] + mid.dx * t;
+        const z = road.from[1] + mid.dz * t;
         return (
-          <mesh key={`b${i}`} position={[Math.cos(a) * r, 0.02, Math.sin(a) * r]} rotation={[-Math.PI / 2, 0, a]}>
-            <circleGeometry args={[0.9 + (i % 4) * 0.4, 7]} />
-            <meshStandardMaterial color="#0f1c16" roughness={1} />
+          <mesh key={i} position={[x, 0.07, z]} rotation={[-Math.PI / 2, 0, -mid.angle]}>
+            <planeGeometry args={[0.28, 1.5]} />
+            <meshBasicMaterial color={active ? '#9ae4ef' : '#3a4a55'} transparent opacity={active ? 0.9 : 0.45} />
           </mesh>
         );
       })}
@@ -66,162 +142,114 @@ function Ground() {
   );
 }
 
-function Road({
-  from,
-  to,
-  active,
-}: {
-  from: [number, number];
-  to: [number, number];
-  active?: boolean;
-}) {
-  const mid = useMemo(() => {
-    const dx = to[0] - from[0];
-    const dz = to[1] - from[1];
-    const len = Math.hypot(dx, dz);
-    const angle = Math.atan2(dx, dz);
-    return { len, angle, cx: (from[0] + to[0]) / 2, cz: (from[1] + to[1]) / 2, dx, dz };
-  }, [from, to]);
-
-  const dashes = useMemo(() => {
-    const n = Math.max(2, Math.floor(mid.len / 6));
-    const out: { x: number; z: number }[] = [];
-    for (let i = 1; i < n; i++) {
-      const t = i / n;
-      out.push({
-        x: from[0] + (to[0] - from[0]) * t,
-        z: from[1] + (to[1] - from[1]) * t,
-      });
+function RouteChevrons({ roads, activeIds, target }: { roads: DriveRoad[]; activeIds: Set<string>; target: DrivePoint }) {
+  const marks = useMemo(() => {
+    const out: { x: number; z: number; angle: number }[] = [];
+    for (const r of roads) {
+      if (!activeIds.has(r.id)) continue;
+      const dx = r.to[0] - r.from[0];
+      const dz = r.to[1] - r.from[1];
+      const len = Math.hypot(dx, dz) || 1;
+      // orient chevrons toward the target end of the segment
+      const dFrom = Math.hypot(r.from[0] - target.x, r.from[1] - target.z);
+      const dTo = Math.hypot(r.to[0] - target.x, r.to[1] - target.z);
+      const towardTo = dTo < dFrom;
+      const sx = towardTo ? dx / len : -dx / len;
+      const sz = towardTo ? dz / len : -dz / len;
+      const angle = Math.atan2(sx, sz);
+      const n = Math.max(2, Math.floor(len / 14));
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        out.push({
+          x: r.from[0] + dx * t,
+          z: r.from[1] + dz * t,
+          angle,
+        });
+      }
     }
     return out;
-  }, [from, to, mid.len]);
+  }, [roads, activeIds, target]);
+
+  const group = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!group.current) return;
+    const pulse = 0.55 + Math.sin(clock.elapsedTime * 3) * 0.25;
+    for (const child of group.current.children) {
+      const m = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      if (m) m.opacity = pulse;
+    }
+  });
 
   return (
-    <group>
-      {/* asphalt */}
-      <mesh position={[mid.cx, 0.035, mid.cz]} rotation={[-Math.PI / 2, 0, -mid.angle]} receiveShadow>
-        <planeGeometry args={[5.4, mid.len]} />
-        <meshStandardMaterial
-          color={active ? '#222c38' : '#161e28'}
-          roughness={0.88}
-          metalness={0.12}
-        />
-      </mesh>
-      {/* soft shoulder glow when this is the mission road */}
-      {active && (
-        <mesh position={[mid.cx, 0.05, mid.cz]} rotation={[-Math.PI / 2, 0, -mid.angle]}>
-          <planeGeometry args={[6.4, mid.len]} />
-          <meshBasicMaterial color="#5ec8d8" transparent opacity={0.07} />
-        </mesh>
-      )}
-      {/* edge lines */}
-      <mesh position={[mid.cx, 0.045, mid.cz]} rotation={[-Math.PI / 2, 0, -mid.angle]}>
-        <planeGeometry args={[0.12, mid.len * 0.98]} />
-        <meshBasicMaterial color={active ? '#7eb8ff' : '#3a4a58'} transparent opacity={active ? 0.55 : 0.35} />
-      </mesh>
-      {/* center dashes */}
-      {dashes.map((d, i) => (
-        <mesh
-          key={i}
-          position={[d.x, 0.048, d.z]}
-          rotation={[-Math.PI / 2, 0, -mid.angle]}
-        >
-          <planeGeometry args={[0.18, 2.2]} />
-          <meshBasicMaterial color={active ? '#9ae4ef' : '#5a6a78'} transparent opacity={active ? 0.85 : 0.45} />
+    <group ref={group}>
+      {marks.map((m, i) => (
+        <mesh key={i} position={[m.x, 0.12, m.z]} rotation={[-Math.PI / 2, 0, -m.angle]}>
+          <coneGeometry args={[0.55, 1.4, 3]} />
+          <meshBasicMaterial color="#e8c07a" transparent opacity={0.7} depthWrite={false} />
         </mesh>
       ))}
     </group>
   );
 }
 
-/** Vertical searchlight / nav beacon over the target tank. */
 function TargetBeacon({ point }: { point: DrivePoint }) {
   const beam = useRef<THREE.Mesh>(null);
-  const ring = useRef<THREE.Mesh>(null);
-  const t = useRef(0);
+  const ringA = useRef<THREE.Mesh>(null);
+  const ringB = useRef<THREE.Mesh>(null);
+  const diamond = useRef<THREE.Mesh>(null);
 
-  useFrame((_, dt) => {
-    t.current += dt;
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
     if (beam.current) {
       const mat = beam.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.18 + Math.sin(t.current * 2.4) * 0.06;
+      mat.opacity = 0.18 + Math.sin(t * 2.2) * 0.06;
+      beam.current.scale.x = 1 + Math.sin(t * 1.6) * 0.08;
+      beam.current.scale.z = 1 + Math.sin(t * 1.6) * 0.08;
     }
-    if (ring.current) {
-      const s = 1 + Math.sin(t.current * 3.2) * 0.1;
-      ring.current.scale.set(s, s, s);
-      ring.current.rotation.z = t.current * 0.6;
+    if (ringA.current) {
+      ringA.current.position.y = 0.2 + ((t * 2.2) % 8);
+      const mat = ringA.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = Math.max(0, 0.7 - ringA.current.position.y / 10);
+      const s = 1 + ringA.current.position.y * 0.12;
+      ringA.current.scale.set(s, s, s);
+    }
+    if (ringB.current) {
+      ringB.current.position.y = 0.2 + (((t * 2.2) + 4) % 8);
+      const mat = ringB.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = Math.max(0, 0.7 - ringB.current.position.y / 10);
+      const s = 1 + ringB.current.position.y * 0.12;
+      ringB.current.scale.set(s, s, s);
+    }
+    if (diamond.current) {
+      diamond.current.position.y = 14 + Math.sin(t * 2) * 0.4;
+      diamond.current.rotation.y = t * 1.4;
     }
   });
 
   return (
     <group position={[point.x, 0, point.z]}>
-      <mesh ref={beam} position={[0, 22, 0]}>
-        <cylinderGeometry args={[0.35, 3.8, 44, 20, 1, true]} />
-        <meshBasicMaterial color="#5ec8d8" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false} />
+      {/* light shaft */}
+      <mesh ref={beam} position={[0, 18, 0]}>
+        <cylinderGeometry args={[0.6, 3.2, 36, 20, 1, true]} />
+        <meshBasicMaterial color="#5ec8d8" transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 44, 0]}>
-        <sphereGeometry args={[0.7, 16, 16]} />
-        <meshBasicMaterial color="#dff6ff" />
+      <mesh ref={ringA} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
+        <ringGeometry args={[4.8, 5.6, 40]} />
+        <meshBasicMaterial color="#9ae4ef" transparent opacity={0.6} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
-        <ringGeometry args={[5.4, 6.4, 48]} />
-        <meshBasicMaterial color="#5ec8d8" transparent opacity={0.9} side={THREE.DoubleSide} />
+      <mesh ref={ringB} rotation={[-Math.PI / 2, 0, 0]} position={[0, 4, 0]}>
+        <ringGeometry args={[4.8, 5.6, 40]} />
+        <meshBasicMaterial color="#7eb8ff" transparent opacity={0.5} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
-        <ringGeometry args={[7.2, 7.6, 48]} />
-        <meshBasicMaterial color="#7eb8ff" transparent opacity={0.35} side={THREE.DoubleSide} />
+      <mesh ref={diamond} position={[0, 14, 0]} rotation={[0, 0, Math.PI / 4]}>
+        <octahedronGeometry args={[1.1, 0]} />
+        <meshStandardMaterial color="#9ae4ef" emissive="#5ec8d8" emissiveIntensity={2.2} metalness={0.4} roughness={0.2} />
       </mesh>
-      <pointLight position={[0, 10, 0]} intensity={28} distance={36} color="#5ec8d8" />
-      <pointLight position={[0, 30, 0]} intensity={12} distance={50} color="#9ae4ef" />
-      <Html position={[0, 12, 0]} center distanceFactor={26} style={{ pointerEvents: 'none' }}>
-        <div className="drive-beacon-tag">TARGET · {point.label}</div>
+      <pointLight position={[0, 10, 0]} intensity={40} distance={55} color="#5ec8d8" />
+      <spotLight position={[0, 28, 0]} angle={0.35} penumbra={0.6} intensity={50} distance={70} color="#b5eef5" castShadow />
+      <Html position={[0, 17, 0]} center distanceFactor={26} style={{ pointerEvents: 'none' }}>
+        <div className="drive-beacon-tag">Beacon · target</div>
       </Html>
-    </group>
-  );
-}
-
-/** Floating chevron ahead of the truck that always points at the target. */
-function NavArrow({
-  truckRef,
-  target,
-}: {
-  truckRef: React.MutableRefObject<{ x: number; z: number; yaw: number } | null>;
-  target: DrivePoint | undefined;
-}) {
-  const group = useRef<THREE.Group>(null);
-  useFrame(() => {
-    if (!group.current || !truckRef.current || !target) {
-      if (group.current) group.current.visible = false;
-      return;
-    }
-    const s = truckRef.current;
-    const dist = Math.hypot(target.x - s.x, target.z - s.z);
-    if (dist < 8) {
-      group.current.visible = false;
-      return;
-    }
-    group.current.visible = true;
-    const bearing = Math.atan2(target.x - s.x, target.z - s.z);
-    const ahead = 7.5;
-    group.current.position.set(
-      s.x + Math.sin(bearing) * ahead,
-      2.4 + Math.sin(performance.now() * 0.004) * 0.25,
-      s.z + Math.cos(bearing) * ahead,
-    );
-    group.current.rotation.y = bearing;
-  });
-
-  return (
-    <group ref={group}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.55, 1.6, 3]} />
-        <meshBasicMaterial color="#5ec8d8" />
-      </mesh>
-      <mesh position={[0, -0.15, -1.1]} rotation={[Math.PI / 2, 0, 0]}>
-        <boxGeometry args={[0.28, 1.1, 0.12]} />
-        <meshBasicMaterial color="#9ae4ef" transparent opacity={0.85} />
-      </mesh>
-      <pointLight intensity={6} distance={12} color="#5ec8d8" />
     </group>
   );
 }
@@ -230,31 +258,38 @@ function TankPad({ point, isTarget }: { point: DrivePoint; isTarget: boolean }) 
   return (
     <group position={[point.x, 0, point.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]} receiveShadow>
-        <circleGeometry args={[6.5, 28]} />
-        <meshStandardMaterial color="#121c24" roughness={0.92} />
+        <circleGeometry args={[7, 28]} />
+        <meshStandardMaterial color={isTarget ? '#1a3038' : '#141e26'} roughness={0.9} />
       </mesh>
-      {/* pad ring like a map marker */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
-        <ringGeometry args={[6.2, 6.55, 36]} />
-        <meshBasicMaterial color={isTarget ? '#5ec8d8' : '#2a3844'} transparent opacity={0.7} side={THREE.DoubleSide} />
+      {/* bund wall */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.35, 0]}>
+        <ringGeometry args={[6.2, 6.7, 28]} />
+        <meshStandardMaterial color="#2a3844" metalness={0.3} roughness={0.55} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 3.2, 0]} castShadow>
-        <cylinderGeometry args={[2.4, 2.4, 6.4, 24]} />
-        <meshStandardMaterial color={isTarget ? '#3a5058' : '#2a3840'} metalness={0.55} roughness={0.35} />
+      <mesh position={[0, 3.4, 0]} castShadow>
+        <cylinderGeometry args={[2.5, 2.5, 6.8, 28]} />
+        <meshStandardMaterial color={isTarget ? '#4a6570' : '#2c3a44'} metalness={0.55} roughness={0.32} />
       </mesh>
-      <mesh position={[0, 6.45, 0]} castShadow>
-        <cylinderGeometry args={[2.55, 2.55, 0.35, 24]} />
-        <meshStandardMaterial color="#1e2a32" metalness={0.4} roughness={0.5} />
+      <mesh position={[0, 6.9, 0]} castShadow>
+        <cylinderGeometry args={[2.65, 2.65, 0.35, 28]} />
+        <meshStandardMaterial color="#1c2830" metalness={0.45} roughness={0.45} />
       </mesh>
-      <mesh position={[2.55, 3.2, 0]}>
-        <boxGeometry args={[0.12, 6.2, 0.55]} />
-        <meshStandardMaterial color="#5a6a72" metalness={0.6} roughness={0.4} />
+      {/* stair tower */}
+      <mesh position={[2.85, 3.4, 0]} castShadow>
+        <boxGeometry args={[0.55, 6.8, 0.9]} />
+        <meshStandardMaterial color="#5a6e78" metalness={0.5} roughness={0.4} />
+      </mesh>
+      {/* pump skid */}
+      <mesh position={[-4.2, 0.7, 2.4]} castShadow>
+        <boxGeometry args={[2.2, 1.4, 1.6]} />
+        <meshStandardMaterial color="#243038" metalness={0.35} roughness={0.55} />
       </mesh>
       {!isTarget && (
-        <Html position={[0, 8.2, 0]} center distanceFactor={28} style={{ pointerEvents: 'none' }}>
-          <div className="drive-pin">{point.label}</div>
-        </Html>
+        <pointLight position={[0, 7.5, 0]} intensity={4} distance={16} color="#7a9aab" />
       )}
+      <Html position={[0, 8.6, 0]} center distanceFactor={28} style={{ pointerEvents: 'none' }}>
+        <div className={`drive-pin ${isTarget ? 'target' : ''}`}>{point.label}</div>
+      </Html>
     </group>
   );
 }
@@ -263,27 +298,54 @@ function Yard({ point }: { point: DrivePoint }) {
   return (
     <group position={[point.x, 0, point.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} receiveShadow>
-        <planeGeometry args={[22, 18]} />
-        <meshStandardMaterial color="#1a2430" roughness={0.9} />
+        <planeGeometry args={[22, 16]} />
+        <meshStandardMaterial color="#1c2832" roughness={0.88} metalness={0.1} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
-        <ringGeometry args={[10.5, 11, 48]} />
-        <meshBasicMaterial color="#3a5060" transparent opacity={0.45} side={THREE.DoubleSide} />
-      </mesh>
+      {/* floodlight poles */}
+      {([-8, 8] as const).map((x) => (
+        <group key={x} position={[x, 0, -6]}>
+          <mesh position={[0, 4, 0]}>
+            <cylinderGeometry args={[0.12, 0.18, 8, 8]} />
+            <meshStandardMaterial color="#3a4a55" metalness={0.5} roughness={0.4} />
+          </mesh>
+          <pointLight position={[0, 7.5, 1]} intensity={12} distance={28} color="#dff6ff" />
+        </group>
+      ))}
       {[-6, 0, 6].map((x) => (
-        <mesh key={x} position={[x, 1.1, -6]} castShadow>
-          <boxGeometry args={[3.4, 2.2, 2.6]} />
-          <meshStandardMaterial color="#243038" metalness={0.2} roughness={0.7} />
+        <mesh key={x} position={[x, 1.2, -5.5]} castShadow>
+          <boxGeometry args={[3.4, 2.4, 2.6]} />
+          <meshStandardMaterial color="#243038" metalness={0.25} roughness={0.65} />
         </mesh>
       ))}
-      {/* yard lamp */}
-      <mesh position={[8, 4, 6]}>
-        <cylinderGeometry args={[0.12, 0.12, 8, 8]} />
-        <meshStandardMaterial color="#1a2228" />
+      <mesh position={[0, 0.08, 3]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[3.5, 4.2, 28]} />
+        <meshBasicMaterial color="#5ec8d8" transparent opacity={0.25} side={THREE.DoubleSide} />
       </mesh>
-      <pointLight position={[8, 8, 6]} intensity={14} distance={30} color="#e8c07a" />
-      <Html position={[0, 4.5, 0]} center distanceFactor={30} style={{ pointerEvents: 'none' }}>
+      <Html position={[0, 4.2, 0]} center distanceFactor={30} style={{ pointerEvents: 'none' }}>
         <div className="drive-pin yard">{point.label}</div>
+      </Html>
+    </group>
+  );
+}
+
+function HubMarker({ point }: { point: DrivePoint }) {
+  return (
+    <group position={[point.x, 0, point.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <circleGeometry args={[5, 24]} />
+        <meshStandardMaterial color="#152028" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 2.2, 0]} castShadow>
+        <cylinderGeometry args={[0.35, 0.55, 4.4, 8]} />
+        <meshStandardMaterial color="#4a5a66" metalness={0.4} roughness={0.45} />
+      </mesh>
+      <mesh position={[0, 4.6, 0]}>
+        <sphereGeometry args={[0.55, 12, 12]} />
+        <meshStandardMaterial color="#7eb8ff" emissive="#7eb8ff" emissiveIntensity={1.4} />
+      </mesh>
+      <pointLight position={[0, 5, 0]} intensity={10} distance={22} color="#7eb8ff" />
+      <Html position={[0, 6.2, 0]} center distanceFactor={32} style={{ pointerEvents: 'none' }}>
+        <div className="drive-pin hub">{point.label}</div>
       </Html>
     </group>
   );
@@ -293,16 +355,75 @@ function Disposal({ point }: { point: DrivePoint }) {
   return (
     <group position={[point.x, 0, point.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-        <circleGeometry args={[5, 20]} />
-        <meshStandardMaterial color="#1a1520" roughness={0.95} />
+        <circleGeometry args={[5.5, 20]} />
+        <meshStandardMaterial color="#1a2218" roughness={0.95} />
       </mesh>
-      <mesh position={[0, 1.2, 0]} castShadow>
-        <cylinderGeometry args={[1.6, 2.1, 2.4, 6]} />
-        <meshStandardMaterial color="#3a2a38" metalness={0.3} roughness={0.6} />
+      <mesh position={[0, 1.1, 0]} castShadow>
+        <cylinderGeometry args={[3.2, 3.4, 2.2, 20]} />
+        <meshStandardMaterial color="#2a3830" metalness={0.2} roughness={0.7} />
       </mesh>
-      <Html position={[0, 4, 0]} center distanceFactor={32} style={{ pointerEvents: 'none' }}>
-        <div className="drive-pin disposal">{point.label}</div>
+      <Html position={[0, 3.2, 0]} center distanceFactor={32} style={{ pointerEvents: 'none' }}>
+        <div className="drive-pin">{point.label}</div>
       </Html>
+    </group>
+  );
+}
+
+function RoadLamps({ roads, activeIds }: { roads: DriveRoad[]; activeIds: Set<string> }) {
+  const lamps = useMemo(() => {
+    const out: { x: number; z: number; active: boolean }[] = [];
+    for (const r of roads) {
+      if (r.kind === 'lease') continue;
+      const dx = r.to[0] - r.from[0];
+      const dz = r.to[1] - r.from[1];
+      const len = Math.hypot(dx, dz) || 1;
+      const px = -dz / len;
+      const pz = dx / len;
+      const n = Math.max(1, Math.floor(len / 22));
+      const active = activeIds.has(r.id);
+      for (let i = 1; i <= n; i++) {
+        const t = i / (n + 1);
+        out.push({
+          x: r.from[0] + dx * t + px * 2.6,
+          z: r.from[1] + dz * t + pz * 2.6,
+          active,
+        });
+      }
+    }
+    return out;
+  }, [roads, activeIds]);
+
+  return (
+    <group>
+      {lamps.map((l, i) => (
+        <group key={i} position={[l.x, 0, l.z]}>
+          <mesh position={[0, 2.4, 0]}>
+            <cylinderGeometry args={[0.08, 0.12, 4.8, 6]} />
+            <meshStandardMaterial color="#2a3840" metalness={0.5} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 4.85, 0]}>
+            <sphereGeometry args={[0.22, 8, 8]} />
+            <meshStandardMaterial
+              color={l.active ? '#dff6ff' : '#8aa0aa'}
+              emissive={l.active ? '#9ae4ef' : '#405058'}
+              emissiveIntensity={l.active ? 1.6 : 0.4}
+            />
+          </mesh>
+          {l.active && <pointLight position={[0, 4.7, 0]} intensity={6} distance={14} color="#c8f0f8" />}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function Moon() {
+  return (
+    <group position={[-60, 55, -80]}>
+      <mesh>
+        <sphereGeometry args={[6, 24, 24]} />
+        <meshBasicMaterial color="#dce9f0" />
+      </mesh>
+      <pointLight intensity={18} distance={400} color="#a8c4d4" />
     </group>
   );
 }
@@ -323,8 +444,7 @@ function Truck({
   onArrive,
   onTelemetry,
   resetKey,
-  poseRef,
-}: SceneProps & { poseRef: React.MutableRefObject<{ x: number; z: number; yaw: number } | null> }) {
+}: Omit<SceneProps, 'roads'>) {
   const group = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const keys = useRef({ f: false, b: false, l: false, r: false });
@@ -381,9 +501,8 @@ function Truck({
   useEffect(() => {
     if (!yard) return;
     state.current = { x: yard.x, z: yard.z + 4, yaw: 0, speed: 0, arrived: false, steered: false, yawAtReset: 0 };
-    poseRef.current = { x: yard.x, z: yard.z + 4, yaw: 0 };
     setReady(true);
-  }, [yard, resetKey, poseRef]);
+  }, [yard, resetKey]);
 
   useFrame((_, dt) => {
     if (!group.current || !ready) return;
@@ -420,13 +539,10 @@ function Truck({
       }
     }
 
-    poseRef.current = { x: s.x, z: s.z, yaw: s.yaw };
     group.current.position.set(s.x, 0, s.z);
     group.current.rotation.y = s.yaw;
 
-    const back = 14;
-    const height = 7.5;
-    camTarget.current.set(s.x - Math.sin(s.yaw) * back, height, s.z - Math.cos(s.yaw) * back);
+    camTarget.current.set(s.x - Math.sin(s.yaw) * 14, 7.5, s.z - Math.cos(s.yaw) * 14);
     camera.position.lerp(camTarget.current, 1 - Math.pow(0.001, clamped));
     lookAt.current.set(s.x, 2.2, s.z);
     camera.lookAt(lookAt.current);
@@ -465,75 +581,72 @@ function Truck({
         <meshStandardMaterial color="#121a20" metalness={0.4} roughness={0.6} />
       </mesh>
       {[
-        [1.05, 0.45, 1.4],
-        [-1.05, 0.45, 1.4],
-        [1.05, 0.45, -1.2],
-        [-1.05, 0.45, -1.2],
-        [1.05, 0.45, -3.4],
-        [-1.05, 0.45, -3.4],
+        [1.05, 0.45, 1.4], [-1.05, 0.45, 1.4],
+        [1.05, 0.45, -1.2], [-1.05, 0.45, -1.2],
+        [1.05, 0.45, -3.4], [-1.05, 0.45, -3.4],
       ].map(([x, y, z], i) => (
         <mesh key={i} position={[x, y, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.45, 0.45, 0.35, 12]} />
           <meshStandardMaterial color="#0a0e12" roughness={0.9} />
         </mesh>
       ))}
-      <spotLight position={[0, 1.4, 2.2]} angle={0.45} penumbra={0.5} intensity={28} distance={48} color="#dff6ff" castShadow />
+      <spotLight position={[0, 1.4, 2.2]} angle={0.45} penumbra={0.5} intensity={28} distance={45} color="#dff6ff" castShadow />
     </group>
   );
 }
 
 function WorldInner(props: SceneProps) {
   const yard = props.points.find((p) => p.kind === 'yard');
+  const hub = props.points.find((p) => p.kind === 'hub');
   const tanks = props.points.filter((p) => p.kind === 'tank');
   const disposal = props.points.find((p) => p.kind === 'disposal');
-  const target = props.points.find((p) => p.id === props.targetId);
+  const target = props.points.find((p) => p.id === props.targetId) ?? null;
   const fog = props.difficulty;
-  const poseRef = useRef<{ x: number; z: number; yaw: number } | null>(null);
 
-  const roads = useMemo(() => {
-    if (!yard) return [] as { from: [number, number]; to: [number, number]; id: string }[];
-    const tankRoads = tanks.map((t) => ({
-      from: [yard.x, yard.z] as [number, number],
-      to: [t.x, t.z] as [number, number],
-      id: t.id,
-    }));
-    if (disposal) {
-      tankRoads.push({
-        from: [yard.x, yard.z],
-        to: [disposal.x, disposal.z],
-        id: disposal.id,
-      });
-    }
-    return tankRoads;
-  }, [yard, tanks, disposal]);
+  const activeIds = useMemo(() => {
+    if (!yard || !props.targetId) return new Set<string>();
+    return shortestPathIds(props.roads, yard.id, props.targetId);
+  }, [props.roads, yard, props.targetId]);
 
   return (
     <>
       <color attach="background" args={['#050c14']} />
       <fog attach="fog" args={['#050c14', fog.fogNear, fog.fogFar]} />
       <ambientLight intensity={0.28} />
-      <directionalLight position={[50, 70, 25]} intensity={0.5} castShadow color="#9bb8c8" />
-      <hemisphereLight args={['#2a4a5a', '#080e0c', 0.4]} />
+      <directionalLight position={[35, 50, 15]} intensity={0.4} castShadow color="#9bb4c4" />
+      <hemisphereLight args={['#2a4050', '#081010', 0.4]} />
       <Stars radius={200} depth={70} count={2200} factor={3.2} saturation={0.15} fade speed={0.35} />
+      <Moon />
       <Ground />
-      {roads.map((r) => (
-        <Road key={r.id} from={r.from} to={r.to} active={r.id === props.targetId} />
+      {props.roads.map((r) => (
+        <RoadMesh key={r.id} road={r} active={activeIds.has(r.id)} />
       ))}
+      <RoadLamps roads={props.roads} activeIds={activeIds} />
+      {target && <RouteChevrons roads={props.roads} activeIds={activeIds} target={target} />}
       {yard && <Yard point={yard} />}
+      {hub && <HubMarker point={hub} />}
       {disposal && <Disposal point={disposal} />}
       {tanks.map((t) => (
         <TankPad key={t.id} point={t} isTarget={t.id === props.targetId} />
       ))}
       {target && <TargetBeacon point={target} />}
-      <Truck {...props} poseRef={poseRef} />
-      <NavArrow truckRef={poseRef} target={target} />
+      <Truck
+        points={props.points}
+        targetId={props.targetId}
+        playing={props.playing}
+        difficulty={props.difficulty}
+        allow={props.allow}
+        onArrive={props.onArrive}
+        onTelemetry={props.onTelemetry}
+        resetKey={props.resetKey}
+      />
     </>
   );
 }
 
 export function DriveScene(props: SceneProps) {
   return (
-    <Canvas shadows camera={{ position: [0, 10, 16], fov: 55, near: 0.1, far: 400 }} dpr={[1, 1.75]}>
+    <Canvas shadows camera={{ position: [0, 12, 18], fov: 55, near: 0.1, far: 450 }} dpr={[1, 1.75]}>
       <WorldInner {...props} />
     </Canvas>
   );

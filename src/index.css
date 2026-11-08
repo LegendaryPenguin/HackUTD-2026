@@ -1839,6 +1839,7 @@ a:hover { color: var(--lagoon-2); }
   box-shadow: 0 0 16px rgba(94, 200, 216, 0.25);
 }
 .drive-pin.yard { color: var(--lagoon-2); }
+.drive-pin.hub { color: var(--lagoon-2); border-color: rgba(126, 184, 255, 0.4); }
 .drive-pin.disposal { color: var(--violet); border-color: rgba(168, 184, 224, 0.35); }
 .drive-beacon-tag {
   padding: 6px 12px;
@@ -1853,6 +1854,11 @@ a:hover { color: var(--lagoon-2); }
   text-transform: uppercase;
   white-space: nowrap;
   box-shadow: 0 0 22px rgba(94, 200, 216, 0.35);
+  animation: driveBeaconPulse 2.2s ease-in-out infinite;
+}
+@keyframes driveBeaconPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(94, 200, 216, 0.25); }
+  50% { box-shadow: 0 0 28px rgba(94, 200, 216, 0.5); }
 }
 .drive-coach {
   position: absolute;
