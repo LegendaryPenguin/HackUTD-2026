@@ -1,24 +1,24 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Area, AreaChart, ReferenceLine, ResponsiveContainer, YAxis } from 'recharts';
-import { ArrowRight, Maximize2, X } from 'lucide-react';
+import { ArrowRight, Maximize2 } from 'lucide-react';
 import { useStore } from '../state/store';
-import { facilities, fmt, hoursToLimit, indexAt } from '../lib/model';
-import type { FacilityCtx, System } from '../lib/types';
+import { facilities, fmt, hoursToLimit } from '../lib/model';
+import type { System } from '../lib/types';
 import { liveFacility, statusColor, statusLabel, type LiveFacility } from '../lib/status';
-import { applyDispatchOverlay, dispatchForFacility } from '../lib/dispatch';
-import { MapPin, facilityBadge, mapArt, mapBackgrounds, wellBadge } from '../components/MapMarkers';
-import { TankGauge } from '../components/TankGauge';
-import { CategoryChip, Confidence, Meter } from '../components/ui';
+import { applyDispatchOverlay, buildDispatchedPlan, dispatchForFacility } from '../lib/dispatch';
+import { failureContext } from '../lib/planner';
+import { MapPin, systemThreadArt, systemThreads, mapBackgrounds } from '../components/MapMarkers';
+import { FacilityTriageCard } from '../components/FacilityTriageCard';
+import { FinancialsBox } from '../components/FinancialsBox';
 
 const W = 1100, H = 720;
 const FIELD_BG = mapBackgrounds.moonlit;
-/** Enchantress-scale: ~9–12% of map width at zoom 1. */
-const PIN = { facility: 108, facilityFocus: 118, facilityHot: 128, hub: 96, hubFocus: 110, well: 52 } as const;
+/** Station stickers stay readable without eating the basin. */
+const PIN = { facility: 96, facilityFocus: 110, facilityHot: 120, hub: 64, hubFocus: 76, well: 44 } as const;
 
 /** equirectangular projection into the SVG box using real lat/lon (no schematic spread). */
-function makeProj(points: [number, number][], pad = 80) {
+function makeProj(points: [number, number][], pad = 130) {
   const lat0 = points.reduce((a, p) => a + p[0], 0) / points.length;
   const k = Math.cos((lat0 * Math.PI) / 180);
   const xs = points.map((p) => p[1] * k), ys = points.map((p) => p[0]);
@@ -28,8 +28,12 @@ function makeProj(points: [number, number][], pad = 80) {
   return (lat: number, lon: number): [number, number] => [ox + (lon * k - minX) * s, H - (oy + (lat - minY) * s)];
 }
 
+function isCritical(status: LiveFacility['status']) {
+  return status === 'failure' || status === 'leak' || status === 'wear';
+}
+
 export default function Network() {
-  const { dataset, analysis, now, dispatched } = useStore();
+  const { dataset, analysis, now, dispatched, simulating, exitSimulate, dispatch } = useStore();
   const [params, setParams] = useSearchParams();
   const [hover, setHover] = useState<string | null>(null);
   const [manualFocus, setManualFocus] = useState<string | null>(null);
@@ -40,11 +44,18 @@ export default function Network() {
     if (!dataset || !analysis) return new Map<string, LiveFacility>();
     return new Map(facs.map((f) => {
       let L = liveFacility(dataset, f, now, analysis.ongoing);
-      const d = dispatchForFacility(dispatched, f.id);
+      let d = dispatchForFacility(dispatched, f.id);
+      if (simulating && simulating.facilityId === f.id) {
+        const ev = analysis.events.find((e) => e.id === simulating.eventId);
+        if (ev) {
+          const ctx = failureContext(ev, dataset, simulating.onsetUnix);
+          d = buildDispatchedPlan(ctx, dataset, simulating.plan, simulating.onsetUnix);
+        }
+      }
       if (d) L = applyDispatchOverlay(L, d, now, dataset);
       return [f.id, L] as const;
     }));
-  }, [dataset, analysis, facs, now, dispatched]);
+  }, [dataset, analysis, facs, now, dispatched, simulating]);
 
   // True geographic positions from network.json (facility / disposal / truck yard lat-lon).
   const proj = useMemo(() => {
@@ -64,105 +75,183 @@ export default function Network() {
   const sysFocus = selectedFac ? selectedFac.system : manualFocus;
   const setSysFocus = (id: string | null) => { setManualFocus(id); if (selectedId) setParams({}); };
 
-  // focus transform
+  // focus / fit transform — keep every pin inside the viewBox (meet, not crop)
   const focusSys = dataset.network.systems.find((s) => s.id === sysFocus) ?? null;
-  let transform = { x: 0, y: 0, k: 1 };
-  if (focusSys) {
-    const pts = [proj(focusSys.disposal_site.lat, focusSys.disposal_site.lon), proj(focusSys.truck_yard[0], focusSys.truck_yard[1]), ...focusSys.facilities.map((f) => proj(f.lat, f.lon))];
-    const pad = 140; // room for large stickers + well orbit
-    const minX = Math.min(...pts.map((p) => p[0])) - pad, maxX = Math.max(...pts.map((p) => p[0])) + pad;
-    const minY = Math.min(...pts.map((p) => p[1])) - pad, maxY = Math.max(...pts.map((p) => p[1])) + pad;
-    const k = Math.min(W / (maxX - minX), H / (maxY - minY), 2.6);
-    transform = { k, x: W / 2 - ((minX + maxX) / 2) * k, y: H / 2 - ((minY + maxY) / 2) * k };
-  }
+  const fitPts = focusSys
+    ? [proj(focusSys.disposal_site.lat, focusSys.disposal_site.lon), proj(focusSys.truck_yard[0], focusSys.truck_yard[1]), ...focusSys.facilities.map((f) => proj(f.lat, f.lon))]
+    : dataset.network.systems.flatMap((s) => [
+        proj(s.disposal_site.lat, s.disposal_site.lon),
+        proj(s.truck_yard[0], s.truck_yard[1]),
+        ...s.facilities.map((f) => proj(f.lat, f.lon)),
+      ]);
+  const fitPad = focusSys ? 180 : 220;
+  const minX = Math.min(...fitPts.map((p) => p[0])) - fitPad;
+  const maxX = Math.max(...fitPts.map((p) => p[0])) + fitPad;
+  const minY = Math.min(...fitPts.map((p) => p[1])) - fitPad;
+  const maxY = Math.max(...fitPts.map((p) => p[1])) + fitPad;
+  const fitK = Math.min(W / (maxX - minX || 1), H / (maxY - minY || 1), focusSys ? 2.2 : 0.88);
+  const transform = {
+    k: fitK,
+    x: W / 2 - ((minX + maxX) / 2) * fitK,
+    y: H / 2 - ((minY + maxY) / 2) * fitK,
+  };
   const selected = selectedId ? live.get(selectedId) ?? null : null;
+  // Open Identify/Decide/Act whenever the selected station asset has an active pump failure.
+  const showTriage = Boolean(
+    selected
+    && selected.status === 'failure'
+    && analysis.orderedFailures.some((c) => c.facility.id === selected.f.id),
+  );
+
+  const stationFailureId = (systemId: string) => {
+    const hit = analysis.orderedFailures.find((c) => c.facility.system === systemId);
+    return hit?.facility.id ?? null;
+  };
 
   const counts = { failure: 0, leak: 0, wear: 0, warning: 0, normal: 0 } as Record<string, number>;
   for (const l of live.values()) counts[l.status]++;
 
   const needYou = counts.failure + counts.leak + counts.wear;
+  const failureIds = [...live.values()].filter((l) => l.status === 'failure').map((l) => l.f.id);
+  const criticalIds = failureIds.length
+    ? failureIds
+    : [...live.values()].filter((l) => isCritical(l.status)).map((l) => l.f.id);
 
   return (
-    <div className="page map-home" style={{ maxWidth: 1680 }}>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Field map</h1>
-          <p className="page-sub">
-            {needYou === 0
-              ? `All quiet across ${facs.length} facilities · pins are real locations`
-              : `${needYou} site${needYou === 1 ? '' : 's'} need you · glow marks trouble · click a pin to dig in`}
-          </p>
+    <div className="map-screen">
+      <div className="map-stage">
+        <div className="map-parallax">
+        <div className="map-topo" aria-hidden>
+          <div className="map-topo__photo" style={{ backgroundImage: `url(${FIELD_BG})` }} />
+          <div className="map-topo__wave" />
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {needYou > 0 && (
-            <Link to="/alerts" className="btn primary sm">
-              Open alerts <ArrowRight size={13} />
-            </Link>
-          )}
-          {(['failure', 'leak', 'wear', 'warning', 'normal'] as const).map((s) => (
-            <span key={s} className="chip ghost" style={{ color: counts[s] ? statusColor[s] : undefined, opacity: counts[s] ? 1 : 0.5 }}>
-              <i className="dot" style={{ background: statusColor[s] }} /> {counts[s]} {statusLabel[s].toLowerCase()}
-            </span>
-          ))}
+        <div className="map-mist" aria-hidden />
+        <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <filter id="crit-glow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="4" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, transformOrigin: '0 0', transformBox: 'view-box', transition: 'transform .75s cubic-bezier(.2,.8,.2,1)' }}>
+            {dataset.network.systems.map((s) => (
+              <SystemLayer
+                key={s.id}
+                sys={s}
+                proj={proj}
+                live={live}
+                hover={hover}
+                setHover={setHover}
+                selected={selectedId}
+                failureId={stationFailureId(s.id)}
+                onSelect={(id) => setParams({ f: id })}
+                dim={!!sysFocus && sysFocus !== s.id}
+                k={transform.k}
+                focused={sysFocus === s.id}
+              />
+            ))}
+          </g>
+        </svg>
         </div>
-      </div>
 
-      <div className="split" style={{ gridTemplateColumns: selected ? 'minmax(0,1fr) 400px' : '1fr' }}>
-        <div className="card map-stage" style={{ position: 'relative' }}>
-          <div className="map-mist" aria-hidden />
-          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <div className="seg">
-              <button className={!sysFocus ? 'on' : ''} onClick={() => { setSysFocus(null); }}><Maximize2 size={12} style={{ verticalAlign: -2, marginRight: 4 }} />All</button>
-              {dataset.network.systems.map((s) => {
-                const bad = s.facilities.some((f) => live.get(f.id)?.status === 'failure');
-                return (
-                  <button key={s.id} className={sysFocus === s.id ? 'on' : ''} onClick={() => setSysFocus(s.id)} style={{ color: bad && sysFocus !== s.id ? 'var(--coral)' : undefined }}>
-                    {s.id}
-                  </button>
-                );
-              })}
+        <div className="map-float map-float-tl">
+          <div className="seg">
+            <button className={!sysFocus ? 'on' : ''} onClick={() => { setSysFocus(null); }}><Maximize2 size={12} style={{ verticalAlign: -2, marginRight: 4 }} />All</button>
+            {dataset.network.systems.map((s) => {
+              const hot = s.facilities.some((f) => {
+                const st = live.get(f.id)?.status;
+                return st === 'failure' || st === 'leak' || st === 'wear';
+              });
+              const tone = s.facilities.some((f) => live.get(f.id)?.status === 'failure')
+                ? 'var(--coral)'
+                : s.facilities.some((f) => live.get(f.id)?.status === 'leak')
+                  ? 'var(--amber)'
+                  : 'var(--violet)';
+              return (
+                <button key={s.id} className={sysFocus === s.id ? 'on' : ''} onClick={() => setSysFocus(s.id)} style={{ color: hot && sysFocus !== s.id ? tone : undefined }}>
+                  {s.id}
+                </button>
+              );
+            })}
+          </div>
+          <div className="map-status-chips">
+            {needYou > 0 && (
+              <button
+                type="button"
+                className="btn primary sm"
+                onClick={() => {
+                  const next = criticalIds.find((id) => id !== selectedId) ?? criticalIds[0];
+                  if (next) setParams({ f: next });
+                }}
+              >
+                {failureIds.length
+                  ? `${failureIds.length} pump fail${failureIds.length === 1 ? '' : 's'}`
+                  : `${needYou} alert${needYou === 1 ? '' : 's'}`}
+                {' '}<ArrowRight size={13} />
+              </button>
+            )}
+            {(['failure', 'leak', 'wear'] as const).filter((s) => counts[s] > 0).map((s) => (
+              <span key={s} className="chip ghost" style={{ color: statusColor[s] }}>
+                <i className="dot" style={{ background: statusColor[s] }} /> {counts[s]} {statusLabel[s].toLowerCase()}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="map-float map-float-tr">
+          <FinancialsBox />
+        </div>
+
+        {simulating && (
+          <div className="sim-dock">
+            <div className="sim-dock-msg">
+              Simulating plan — scrub the timeline to see finances change. You do not know future errors yet.
+            </div>
+            <div className="sim-dock-actions">
+              <button type="button" className="btn sm" onClick={exitSimulate}>Exit simulation</button>
+              <button type="button" className="btn primary sm" onClick={() => { dispatch(simulating.eventId, simulating.plan); exitSimulate(); }}>
+                Put into action
+              </button>
             </div>
           </div>
-          <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, display: 'flex', gap: 12, fontSize: 11, color: 'var(--ink-2)', padding: '8px 12px', borderRadius: 14, background: 'rgba(7,19,28,.72)', backdropFilter: 'blur(8px)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <LegendChip src={mapArt.tank} label="facility" />
-            <LegendChip src={mapArt.well} label="well" />
-            <LegendChip src={mapArt.disposal} label="disposal" />
-            <LegendChip src={mapArt.truck} label="truck yard" />
-            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> flowing</span>
-            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leak</span>
-          </div>
-          <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 18, background: `url(${FIELD_BG}) center/cover` }}>
-            <defs>
-              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="b" />
-                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-            <g style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, transformOrigin: '0 0', transformBox: 'view-box', transition: 'transform .75s cubic-bezier(.2,.8,.2,1)' }}>
-              {dataset.network.systems.map((s) => (
-                <SystemLayer key={s.id} sys={s} proj={proj} live={live} hover={hover} setHover={setHover} selected={selectedId} onSelect={(id) => setParams({ f: id })} dim={!!sysFocus && sysFocus !== s.id} k={transform.k} focused={sysFocus === s.id} />
-              ))}
-            </g>
-          </svg>
-          {/* hover tooltip */}
-          <AnimatePresence>
-            {hover && live.get(hover) && (
-              <motion.div key={hover} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-                style={{ position: 'absolute', top: 12, right: 12, zIndex: 6, padding: '10px 12px', borderRadius: 12, background: 'rgba(8,14,26,.92)', border: '1px solid var(--line-strong)', boxShadow: 'var(--shadow)', minWidth: 220, pointerEvents: 'none' }}>
-                <HoverCard l={live.get(hover)!} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+        )}
+
+        <div className="map-float map-float-bl map-legend">
+          <LegendChip src={systemThreads.S1} label="station" />
+          <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> flowing</span>
+          <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leak</span>
         </div>
 
         <AnimatePresence>
-          {selected && (
-            <motion.div key={selected.f.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-              <FacilityPanel l={selected} onClose={() => setParams({})} />
+          {hover && live.get(hover) && !showTriage && (
+            <motion.div
+              key={hover}
+              className="map-float map-hover-card"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <HoverCard l={live.get(hover)!} />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {showTriage && selected && !simulating && (
+          <FacilityTriageCard
+            key={`triage-${selected.f.id}`}
+            live={selected}
+            initialStep={params.get('flow') === 'decide' || params.get('flow') === 'act' ? params.get('flow') as 'decide' | 'act' : 'identify'}
+            onClose={() => setParams({})}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -191,20 +280,34 @@ function PinTip({ title, sub, y }: { title: string; sub: string; y: number }) {
   );
 }
 
-function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim, k, focused }: {
+function SystemLayer({ sys, proj, live, hover, setHover, selected, failureId, onSelect, dim, k, focused }: {
   sys: System; proj: (lat: number, lon: number) => [number, number]; live: Map<string, LiveFacility>;
-  hover: string | null; setHover: (id: string | null) => void; selected: string | null; onSelect: (id: string) => void;
+  hover: string | null; setHover: (id: string | null) => void; selected: string | null;
+  failureId: string | null;
+  onSelect: (id: string) => void;
   dim: boolean; k: number; focused: boolean;
 }) {
   const [dx, dy] = proj(sys.disposal_site.lat, sys.disposal_site.lon);
-  const [yx, yy] = proj(sys.truck_yard[0], sys.truck_yard[1]);
   const inv = 1 / k;
-  const showWells = focused || k > 1.2;
   const disposalKey = `${sys.id}-disposal`;
-  const truckKey = `${sys.id}-trucks`;
   const hubSize = focused ? PIN.hubFocus : PIN.hub;
+  const failLive = failureId ? live.get(failureId) : undefined;
+  // Prefer an active pump failure over leak/wear so the triage card matches the red halo.
+  const hotFac = failLive
+    ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => l.status === 'failure')
+    ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => isCritical(l.status));
+  const stationTrouble = Boolean(failureId) || Boolean(hotFac && hotFac.status === 'failure');
+  // Red halo = pump failure only (matches Identify/Decide/Act). Leak/wear keep pipe color cues.
+  const stationWarn = stationTrouble;
+  const otherCritical = !stationTrouble && sys.facilities.some((f) => isCritical(live.get(f.id)?.status ?? 'normal'));
+  const stationStatus = stationTrouble
+    ? 'pump failed — click for triage'
+    : otherCritical && hotFac
+      ? statusLabel[hotFac.status]
+      : `${sys.disposal_site.lat.toFixed(3)}, ${sys.disposal_site.lon.toFixed(3)}`;
+
   return (
-    <g opacity={dim ? 0.18 : 1} style={{ transition: 'opacity .3s' }}>
+    <g opacity={dim ? 0.16 : 1} style={{ transition: 'opacity .3s' }}>
       {sys.facilities.map((f) => {
         const l = live.get(f.id)!;
         const [fx, fy] = proj(f.lat, f.lon);
@@ -212,83 +315,72 @@ function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim
         const flowing = l.pumpStatus === 1;
         const leak = l.status === 'leak';
         const stroke = leak ? 'var(--amber)' : flowing ? 'var(--aqua)' : 'rgba(120,150,170,.45)';
+        const d = `M${fx},${fy} Q${mx},${my} ${dx},${dy}`;
         return (
-          <path key={`pipe-${f.id}`} d={`M${fx},${fy} Q${mx},${my} ${dx},${dy}`} fill="none" stroke={stroke}
-            strokeWidth={(flowing ? 3.2 : 2) * inv} opacity={flowing ? 0.9 : 0.5}
-            strokeDasharray={flowing ? (leak ? `${5 * inv} ${5 * inv}` : `${10 * inv} ${7 * inv}`) : undefined}
-            style={flowing ? { animation: `flow ${leak ? 0.9 : 1.5}s linear infinite` } : undefined}
-            filter={flowing ? 'url(#glow)' : undefined} />
-        );
-      })}
-
-      <g transform={`translate(${dx},${dy})`}
-        onMouseEnter={() => setHover(disposalKey)} onMouseLeave={() => setHover(null)}>
-        <MapPin kind="disposal" size={hubSize} inv={inv} badge={sys.id} active={hover === disposalKey} glow={hover === disposalKey ? 'var(--aqua)' : undefined} />
-        {(focused || hover === disposalKey) && (
-          <PinTip title={`${sys.id} disposal`} sub={`${sys.disposal_site.lat.toFixed(3)}, ${sys.disposal_site.lon.toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
-        )}
-      </g>
-
-      <g transform={`translate(${yx},${yy})`}
-        onMouseEnter={() => setHover(truckKey)} onMouseLeave={() => setHover(null)}>
-        <MapPin kind="truck" size={hubSize} inv={inv} badge={sys.id} active={hover === truckKey} glow={hover === truckKey ? 'var(--lagoon)' : undefined} />
-        {(focused || hover === truckKey) && (
-          <PinTip title={`${sys.id} trucks`} sub={`${sys.truck_yard[0].toFixed(3)}, ${sys.truck_yard[1].toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
-        )}
-      </g>
-
-      {sys.facilities.map((f) => {
-        const l = live.get(f.id)!;
-        const [fx, fy] = proj(f.lat, f.lon);
-        const c = statusColor[l.status];
-        const isSel = selected === f.id, isHov = hover === f.id;
-        const trouble = l.status === 'failure' || l.status === 'leak' || l.status === 'wear';
-        const pin = isSel || isHov ? PIN.facilityHot : focused ? PIN.facilityFocus : PIN.facility;
-        const showTip = focused || isHov || isSel || trouble;
-        const nWells = f.wells.length;
-        return (
-          <g key={f.id} transform={`translate(${fx},${fy})`} style={{ cursor: 'pointer' }}
-            onMouseEnter={() => setHover(f.id)} onMouseLeave={() => setHover(null)} onClick={() => onSelect(f.id)}>
-            {l.status === 'failure' && (
-              <circle r={(pin * 0.48) * inv} fill="none" stroke={c} strokeWidth={2 * inv} opacity={0.75}
-                style={{ animation: 'ripple 1.8s ease-out infinite', transformOrigin: 'center', transformBox: 'fill-box' }} />
-            )}
-            {showWells && f.wells.map((w, i) => {
-              const ang = (-Math.PI / 2) + (i * 2 * Math.PI) / nWells;
-              const rad = (pin * 0.72) * inv;
-              const wx = Math.cos(ang) * rad, wy = Math.sin(ang) * rad;
-              const on = l.wells.find((x) => x.id === w.id)?.status === 1;
-              const wKey = `${f.id}-${w.id}`;
-              return (
-                <g key={w.id} transform={`translate(${wx},${wy})`}
-                  onMouseEnter={(e) => { e.stopPropagation(); setHover(wKey); }}
-                  onMouseLeave={() => setHover(f.id)}>
-                  <MapPin kind="well" size={PIN.well} inv={inv} badge={wellBadge(w.id)} dim={!on} active={hover === wKey} />
-                  {hover === wKey && (
-                    <PinTip title={fmt.short(w.id)} sub={on ? 'producing' : 'shut in'} y={(PIN.well * 0.55 + 4) * inv} />
-                  )}
-                </g>
-              );
-            })}
-            <MapPin
-              kind="tank"
-              size={pin}
-              inv={inv}
-              badge={facilityBadge(f.id)}
-              glow={trouble || isHov || isSel ? c : undefined}
-              trouble={trouble}
-              active={isHov || isSel}
-            />
-            {showTip && (
-              <PinTip
-                title={fmt.short(f.id)}
-                sub={isHov || isSel ? `${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}` : statusLabel[l.status]}
-                y={(pin * 0.55 + 8) * inv}
+          <g key={`pipe-${f.id}`}>
+            {leak && (
+              <path
+                d={d}
+                fill="none"
+                stroke="var(--amber)"
+                strokeWidth={14 * inv}
+                opacity={0.22}
+                filter="url(#crit-glow)"
+                style={{ pointerEvents: 'none' }}
               />
             )}
+            <path
+              d={d}
+              fill="none"
+              stroke={stroke}
+              strokeWidth={(leak ? 5.5 : flowing ? 3.2 : 2) * inv}
+              opacity={leak ? 1 : flowing ? 0.9 : 0.45}
+              strokeDasharray={leak ? `${6 * inv} ${5 * inv}` : flowing ? `${10 * inv} ${7 * inv}` : undefined}
+              style={{
+                animation: leak || flowing ? `flow ${leak ? 0.85 : 1.5}s linear infinite` : undefined,
+                pointerEvents: 'none',
+              }}
+              filter={leak || flowing ? 'url(#glow)' : undefined}
+            />
           </g>
         );
       })}
+
+      {/* Single station pin — click opens the alert card, not wells / mining logos. */}
+      <g
+        transform={`translate(${dx},${dy})`}
+        onMouseEnter={() => setHover(disposalKey)}
+        onMouseLeave={() => setHover(null)}
+        style={{ cursor: 'pointer' }}
+        onClick={() => {
+          // Always open the failing facility when present so Identify/Decide/Act use real numbers.
+          const id = failureId
+            ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => l.status === 'failure')?.f.id
+            ?? hotFac?.f.id
+            ?? sys.facilities[0]?.id;
+          if (id) onSelect(id);
+        }}
+      >
+        {stationWarn && (
+          <>
+            <circle r={(hubSize * 0.62) * inv} fill="var(--coral)" opacity={0.12} filter="url(#crit-glow)" />
+            <circle r={(hubSize * 0.52) * inv} fill="none" stroke="var(--coral)" strokeWidth={2.4 * inv} opacity={0.9} className="map-crit-ring" />
+            <circle r={(hubSize * 0.72) * inv} fill="none" stroke="var(--coral)" strokeWidth={1.6 * inv} opacity={0.55} className="map-crit-ring delay" />
+          </>
+        )}
+        <MapPin
+          kind="system"
+          size={hubSize * 1.25}
+          inv={inv}
+          badge={sys.id}
+          active={hover === disposalKey || focused || selected != null && sys.facilities.some((f) => f.id === selected)}
+          glow={stationWarn ? 'var(--coral)' : hover === disposalKey || focused ? 'var(--aqua)' : undefined}
+          trouble={stationTrouble}
+        />
+        {(hover === disposalKey || focused) && (
+          <PinTip title={`${sys.id} station`} sub={stationStatus} y={(hubSize * 0.72) * inv} />
+        )}
+      </g>
     </g>
   );
 }
@@ -299,11 +391,16 @@ function HoverCard({ l }: { l: LiveFacility }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ position: 'relative' }}>
-          <img src={mapArt.tank} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
-          <span className="chip aqua" style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 10, padding: '1px 6px' }}>{facilityBadge(l.f.id)}</span>
+          <img
+            src={systemThreadArt(l.f.system)}
+            alt=""
+            width={56}
+            height={40}
+            style={{ objectFit: 'contain' }}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <b>{fmt.short(l.f.id)}</b>
+          <b>{l.f.system} station</b>
           <div className="dim" style={{ fontSize: 11 }}>{l.f.lat.toFixed(4)} · {l.f.lon.toFixed(4)}</div>
         </div>
         <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
@@ -320,165 +417,6 @@ function HoverCard({ l }: { l: LiveFacility }) {
         <dt>Inflow</dt><dd>{fmt.num(l.inflow)} bpd</dd>
         <dt>Pipeline</dt><dd>{fmt.num(l.recv)} bpd · {fmt.num(l.pipePsi)} psi</dd>
       </dl>
-    </div>
-  );
-}
-
-function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void }) {
-  const { dataset, now, analysis, dispatched } = useStore();
-  if (!dataset || !analysis) return null;
-  const f: FacilityCtx = l.f;
-  const limits = dataset.network.defaults.tank_limits_pct;
-  const t = dataset.telemetry;
-  const iNow = indexAt(t, now);
-  const i0 = Math.max(0, iNow - 288);
-  const lvl = t.series.get(`${f.tank.id}|level_pct`)!;
-  const dPlan = dispatchForFacility(dispatched, f.id);
-  const spark = Array.from({ length: iNow - i0 + 1 }, (_, k) => {
-    const ts = t.ts[i0 + k];
-    let v = lvl[i0 + k];
-    if (dPlan && ts >= dPlan.commitUnix) {
-      const m = Math.floor((ts - dPlan.commitUnix) / 60);
-      if (m >= 0 && m < dPlan.levelTracePct.length) v = dPlan.levelTracePct[m];
-    }
-    return { t: ts, v };
-  });
-  const running = l.pumpStatus === 1;
-  const failed = l.pumpStatus === 2;
-  const nodeStyle = (c: string): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: `1px solid ${c}33`, background: `${c}14` });
-  const fail = analysis.orderedFailures.find((c) => c.facility.id === f.id);
-  const netFill = Math.max(0, l.inflow - (running ? l.pumpFlow : 0));
-  const hrsWarn = l.planOverlay
-    ? hoursToLimit(l.level, f.tank.capacity_bbl, l.inflow, limits.warning)
-    : hoursToLimit(l.level, f.tank.capacity_bbl, netFill, limits.warning);
-  const hrsShut = l.planOverlay
-    ? (isFinite(l.planOverlay.hoursToLimit) ? l.planOverlay.hoursToLimit : hoursToLimit(l.level, f.tank.capacity_bbl, l.inflow, limits.shutdown))
-    : hoursToLimit(l.level, f.tank.capacity_bbl, netFill, limits.shutdown);
-
-  return (
-    <div className="card pad" style={{ position: 'sticky', top: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ position: 'relative' }}>
-          <img src={mapArt.tank} alt="" width={56} height={56} style={{ objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(94,200,216,.35))' }} />
-          <span className="chip aqua" style={{ position: 'absolute', right: -6, bottom: -4, fontWeight: 800 }}>{facilityBadge(f.id)}</span>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="big" style={{ fontSize: 20 }}>{fmt.short(f.id)}</div>
-          <div className="muted" style={{ fontSize: 12 }}>{f.id} · {f.lat.toFixed(4)}, {f.lon.toFixed(4)}</div>
-        </div>
-        <button className="btn ghost sm" onClick={onClose}><X size={14} /></button>
-      </div>
-
-      {/* Enchantress-style cadence chips */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
-        <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
-        {l.planOverlay && (
-          <span className="chip mint tip">
-            live plan · {l.planOverlay.label}
-            <span className="tipbox">
-              Dispatched at {fmt.time(l.planOverlay.commitUnix)}. Tank &amp; wells follow the plan sim (+{l.planOverlay.minute} min).
-              Pump fault stays from sensors. Cost {fmt.money(l.planOverlay.cost)} · peak {l.planOverlay.peakPct.toFixed(0)}%.
-            </span>
-          </span>
-        )}
-        <span className="chip ghost">trucks {f.response_min} min</span>
-        <span className="chip ghost">cycle {f.cycle_min} min</span>
-        {isFinite(hrsWarn) && hrsWarn < 72 && <span className="chip amber">warn {fmt.dur(hrsWarn)}</span>}
-        {isFinite(hrsShut) && hrsShut < 72 && <span className="chip coral">trip {fmt.dur(hrsShut)}</span>}
-        {l.events.map((e) => <CategoryChip key={e.id} cat={e.category} pulse />)}
-      </div>
-
-      {/* Enchantress Start/End meters → Now tank fill vs capacity */}
-      <div style={{ marginTop: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-          <span>Tank now</span>
-          <span className="muted">{l.level.toFixed(1)}% · {fmt.num((l.level / 100) * f.tank.capacity_bbl)} / {fmt.num(f.tank.capacity_bbl)} bbl</span>
-        </div>
-        <Meter value={l.level} max={100} warn={limits.warning} shut={limits.shutdown} height={16} />
-      </div>
-
-      {/* Pathways (Enchantress neighbor list → Avon flow chain) */}
-      <div style={{ marginTop: 16, fontWeight: 800, fontSize: 12.5, letterSpacing: '.02em' }}>Pathways</div>
-      <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-        <div style={nodeStyle('#7f93ab')}>
-          <img src={mapArt.well} alt="" width={40} height={40} style={{ objectFit: 'contain' }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5 }}>Wells → {fmt.num(l.inflow)} bpd water</div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-              {l.wells.map((w) => (
-                <span key={w.id} className={`chip ${w.status === 1 ? 'aqua' : 'coral'} tip`} style={{ fontSize: 10.5 }}>
-                  {wellBadge(w.id)} {w.status === 1 ? fmt.num(w.water) : 'shut in'}
-                  <span className="tipbox">{w.id}: {fmt.num(f.wells.find((x) => x.id === w.id)!.oil_bpd)} bbl oil · {fmt.num(f.wells.find((x) => x.id === w.id)!.gas_mcfd)} mcf gas /day</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-        <Arrow active />
-        <div style={{ ...nodeStyle(l.level >= limits.shutdown ? '#fb7185' : l.level >= limits.warning ? '#f6b04b' : '#2dd4bf'), alignItems: 'stretch' }}>
-          <TankGauge level={l.level} warn={limits.warning} shut={limits.shutdown} width={64} height={84} failed={failed} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <img src={mapArt.tank} alt="" width={18} height={18} style={{ objectFit: 'contain' }} /> {f.tank.id}
-            </div>
-            <div className="muted" style={{ fontSize: 12 }}>{fmt.num((l.level / 100) * f.tank.capacity_bbl)} / {fmt.num(f.tank.capacity_bbl)} bbl</div>
-            <div style={{ height: 46, marginTop: 6 }}>
-              <ResponsiveContainer>
-                <AreaChart data={spark} margin={{ top: 2, bottom: 0, left: 0, right: 0 }}>
-                  <defs><linearGradient id="sp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--aqua)" stopOpacity=".5" /><stop offset="100%" stopColor="var(--aqua)" stopOpacity="0" /></linearGradient></defs>
-                  <YAxis domain={[0, 100]} hide />
-                  <ReferenceLine y={limits.shutdown} stroke="var(--coral)" strokeDasharray="3 3" />
-                  <Area type="monotone" dataKey="v" stroke="var(--aqua)" strokeWidth={1.5} fill="url(#sp)" isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="dim" style={{ fontSize: 10.5 }}>last 24 h</div>
-          </div>
-        </div>
-        <Arrow active={running} />
-        <div style={nodeStyle(failed ? '#fb7185' : running ? '#2dd4bf' : '#7f93ab')}>
-          <img src={mapArt.well} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'contain', opacity: failed ? 1 : running ? 1 : 0.7 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5 }}>{f.pump.id} · {failed ? <span style={{ color: 'var(--coral)' }}>FAULT</span> : running ? 'running' : 'off (below start level)'}</div>
-            <div className="muted" style={{ fontSize: 12 }}>{fmt.num(l.pumpFlow)} / {fmt.num(f.pump.max_flow_bpd)} bpd · discharge {fmt.num(l.discharge)} psi</div>
-            {running && <div style={{ marginTop: 6 }}><Meter value={l.pumpFlow} max={f.pump.max_flow_bpd} ruler={false} height={8} color={l.pumpFlow / f.pump.max_flow_bpd < 0.97 ? 'amber' : 'aqua'} /></div>}
-          </div>
-        </div>
-        <Arrow active={running} />
-        <div style={nodeStyle(l.status === 'leak' ? '#f6b04b' : running ? '#2dd4bf' : '#7f93ab')}>
-          <img src={mapArt.disposal} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'contain' }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5 }}>{f.pipeline.id} → {f.system} disposal</div>
-            <div className="muted" style={{ fontSize: 12 }}>receives {fmt.num(l.recv)} bpd · {fmt.num(l.pipePsi)} psi (disposal {f.disposal_psi})</div>
-            {running && l.pumpFlow - l.recv > 25 && <div style={{ color: 'var(--amber)', fontSize: 12, fontWeight: 600 }}>losing ~{fmt.num(l.pumpFlow - l.recv)} bpd in the line</div>}
-          </div>
-        </div>
-      </div>
-
-      {fail && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: 'var(--coral-dim)', border: '1px solid rgba(251,113,133,.3)' }}>
-          <div style={{ fontWeight: 700 }}>Trips in {fmt.dur(fail.hoursToLimit)} · recommended {analysis.systemPlans[f.system]?.plans[fail.event.id]?.label}</div>
-          <div className="muted" style={{ fontSize: 12 }}>{fmt.money(analysis.systemPlans[f.system]?.plans[fail.event.id]?.cost ?? 0)} vs {fmt.money(fail.doNothingCost)} doing nothing</div>
-        </div>
-      )}
-      {l.events.filter((e) => e.category !== 'pump_failure').map((e) => (
-        <div key={e.id} style={{ marginTop: 10, fontSize: 12.5, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Confidence value={e.confidence} /> <span className="muted">{e.evidence[0]}</span>
-        </div>
-      ))}
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        {fail && <Link to={`/plan/${fail.event.id}`} className="btn primary sm">Plan <ArrowRight size={13} /></Link>}
-        <Link to={`/trends?f=${f.id}`} className="btn sm">Trend this facility <ArrowRight size={13} /></Link>
-      </div>
-    </div>
-  );
-}
-
-function Arrow({ active }: { active?: boolean }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', height: 14 }}>
-      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 0v10M3 7l4 4 4-4" fill="none" stroke={active ? 'var(--aqua)' : 'var(--ink-3)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </div>
   );
 }

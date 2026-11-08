@@ -115,3 +115,13 @@ export function dispatchForFacility(
 ): DispatchedPlan | undefined {
   return Object.values(dispatched).find((d) => d.facilityId === facilityId);
 }
+
+/** Build a transient overlay from a simulate session (not committed). */
+export function simulateAsDispatch(
+  ctx: FailureContext,
+  ds: Dataset,
+  plan: PlanOption,
+  onsetUnix: number,
+): DispatchedPlan {
+  return buildDispatchedPlan(ctx, ds, plan, onsetUnix);
+}

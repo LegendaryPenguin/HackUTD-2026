@@ -1,0 +1,420 @@
+/* Plan — sleek cost studio */
+
+.plan-page {
+  max-width: 1280px;
+}
+
+.plan-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.plan-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.plan-crumb a {
+  color: var(--ink-2);
+}
+
+.plan-crumb a:hover {
+  color: var(--ink-0);
+}
+
+.plan-hero .page-title {
+  font-size: 24px;
+  letter-spacing: 0.04em;
+}
+
+.plan-hero .page-title .plan-asset {
+  display: inline;
+  margin-left: 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.plan-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* metric ribbon */
+.plan-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 18px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plan-metric {
+  padding: 16px 18px;
+  background: rgba(8, 10, 12, 0.88);
+  min-width: 0;
+}
+
+.plan-metric-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.plan-metric-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: var(--ink-0);
+}
+
+.plan-metric-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+
+.plan-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.plan-panel {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(165deg, rgba(12, 16, 14, 0.94), rgba(5, 8, 7, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px -30px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+.plan-panel-pad {
+  padding: 16px 18px;
+}
+
+.plan-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-1);
+}
+
+.plan-panel-title .plan-panel-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-panel-title .plan-panel-meta {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.plan-chart {
+  height: 340px;
+}
+
+.plan-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.plan-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-side {
+  display: grid;
+  gap: 14px;
+}
+
+.plan-fleet-note {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+
+.plan-fleet-list {
+  display: grid;
+  gap: 6px;
+}
+
+.plan-fleet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: inherit;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.plan-fleet-row:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plan-fleet-row.is-active {
+  background: var(--aqua-dim);
+  border-color: rgba(0, 180, 216, 0.28);
+}
+
+.plan-fleet-trucks {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.plan-fleet-name {
+  font-weight: 650;
+  font-size: 12.5px;
+}
+
+.plan-fleet-label {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.plan-fleet-cost {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-whatif {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.plan-whatif-box {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plan-whatif-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.plan-whatif-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.plan-whatif-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.plan-whatif-chip {
+  margin-top: 10px;
+}
+
+.plan-wells .table th,
+.plan-options .table th {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.plan-wells-foot {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.plan-options {
+  margin-top: 16px;
+}
+
+.plan-options-head {
+  padding: 16px 18px 8px;
+}
+
+.plan-options .table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.plan-options .table tr.row {
+  cursor: pointer;
+}
+
+.plan-options .table tr.rec td {
+  background: linear-gradient(90deg, rgba(132, 241, 180, 0.08), rgba(0, 180, 216, 0.08));
+}
+
+.plan-option-name {
+  font-weight: 650;
+}
+
+.plan-option-cost-break {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.plan-options-more {
+  padding: 12px;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* picker / empty */
+.plan-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.plan-picker-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(165deg, rgba(12, 16, 14, 0.94), rgba(5, 8, 7, 0.98));
+  color: inherit;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.plan-picker-card:hover {
+  border-color: rgba(0, 180, 216, 0.28);
+  transform: translateY(-1px);
+}
+
+.plan-picker-rank {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink-3);
+  min-width: 24px;
+}
+
+.plan-picker-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-picker-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.plan-picker-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.plan-replay-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(161, 0, 255, 0.18);
+  background: rgba(161, 0, 255, 0.06);
+}
+
+.plan-empty {
+  border-radius: 18px;
+  padding: 36px 24px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(165deg, rgba(12, 16, 14, 0.9), rgba(5, 8, 7, 0.96));
+  color: var(--ink-2);
+}
+
+.plan-empty-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+@media (max-width: 1100px) {
+  .plan-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .plan-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .plan-metrics {
+    grid-template-columns: 1fr;
+  }
+  .plan-picker-grid {
+    grid-template-columns: 1fr;
+  }
+  .plan-whatif {
+    grid-template-columns: 1fr;
+  }
+}
