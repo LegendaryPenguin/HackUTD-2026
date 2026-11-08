@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, Bell, ChevronDown, ClipboardList, FolderOpen, Map as MapIcon, Menu, SlidersHorizontal, Users, X } from 'lucide-react';
+import { Activity, Bell, ChevronDown, ClipboardList, FolderOpen, Fuel, Map as MapIcon, Menu, SlidersHorizontal, Truck, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import emblem from '../assets/emblem.jpg';
 import { useStore } from '../state/store';
@@ -16,6 +16,9 @@ export function Layout() {
   const nOther = (analysis?.ongoing.length ?? 0) - nFail;
   const mapMode = location.pathname === '/' || location.pathname === '/network';
   const trendsMode = location.pathname === '/trends';
+  const driveMode = location.pathname === '/drive';
+  const tycoonMode = location.pathname === '/tycoon';
+  const showOutlet = !!dataset || tycoonMode;
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
@@ -27,7 +30,7 @@ export function Layout() {
   }, [menuOpen]);
 
   return (
-    <div className={`shell ${mapMode ? 'map-mode' : ''} ${trendsMode ? 'trends-mode' : ''}`}>
+    <div className={`shell ${mapMode ? 'map-mode' : ''} ${trendsMode ? 'trends-mode' : ''} ${driveMode ? 'drive-mode' : ''} ${tycoonMode ? 'tycoon-mode' : ''}`}>
       <div className="tide-ambient" aria-hidden>
         <span className="orb a" />
         <span className="orb b" />
@@ -74,12 +77,19 @@ export function Layout() {
           <NavLink to="/crew" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <Users size={18} /> <span className="lbl">Shifts</span>
           </NavLink>
+          <NavLink to="/drive" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+            <Truck size={18} /> <span className="lbl">Drive</span>
+          </NavLink>
           <div className="nav-section">Review</div>
           <NavLink to="/trends" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <Activity size={18} /> <span className="lbl">Trends</span>
           </NavLink>
           <NavLink to="/log" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <ClipboardList size={18} /> <span className="lbl">Shift log</span>
+          </NavLink>
+          <div className="nav-section">Extra</div>
+          <NavLink to="/tycoon" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+            <Fuel size={18} /> <span className="lbl">Oil Tycoon</span>
           </NavLink>
         </nav>
 
@@ -118,7 +128,7 @@ export function Layout() {
             </div>
           </div>
         )}
-        {!loading && !dataset && (
+        {!loading && !dataset && !tycoonMode && (
           <div className="empty" style={{ height: '100%' }}>
             <div>
               <h2 className="page-title">No dataset found</h2>
@@ -126,10 +136,10 @@ export function Layout() {
             </div>
           </div>
         )}
-        {dataset && <Outlet />}
+        {!loading && showOutlet && <Outlet />}
       </main>
 
-      {dataset && !loading && <TideDock />}
+      {dataset && !loading && !driveMode && !tycoonMode && <TideDock />}
     </div>
   );
 }
