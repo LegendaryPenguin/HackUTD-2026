@@ -14,15 +14,28 @@ import {
   wellBadge,
   mapArt,
   mapBackgrounds,
+  oilCenterArt,
 } from '../components/MapMarkers';
 import { FacilityTriageCard } from '../components/FacilityTriageCard';
+import { FacilityStatusCard } from '../components/FacilityStatusCard';
 import { InspectIssueCard } from '../components/InspectIssueCard';
 import { FinancialsBox } from '../components/FinancialsBox';
+import { LiquidMeter } from '../components/ui';
+import { MapSteam } from '../components/MapSteam';
 
 const W = 1100, H = 720;
-const FIELD_BG = mapBackgrounds.moonlit;
+const FIELD_BG = mapBackgrounds.topo;
 /** Station stickers stay readable without eating the basin. */
-const PIN = { facility: 96, facilityFocus: 110, facilityHot: 120, hub: 64, hubFocus: 76, well: 44 } as const;
+const PIN = {
+  facility: 96,
+  facilityFocus: 110,
+  facilityHot: 120,
+  oilCenter: 108,
+  oilCenterFocus: 132,
+  truck: 40,
+  truckFocus: 48,
+  well: 44,
+} as const;
 
 type XY = [number, number];
 type StationLayout = {
@@ -49,8 +62,9 @@ function buildStationLayout(systems: System[]): Map<string, StationLayout> {
   const cellW = (W - padX * 2) / cols;
   const cellH = (H - padTop - padBottom) / rows;
   // Keep assets inside the cell with clearance ≈ pin diameter (~100).
-  const localR = Math.min(cellW, cellH) * 0.32;
-  const ringR = Math.min(cellW, cellH) * 0.44;
+  // Room for larger oil-center hubs — ring grows with the pad.
+  const localR = Math.min(cellW, cellH) * 0.36;
+  const ringR = Math.min(cellW, cellH) * 0.5;
   const out = new Map<string, StationLayout>();
 
   ordered.forEach((sys, i) => {
@@ -179,6 +193,8 @@ export default function Network() {
       ?? analysis.ongoing.find((e) => e.facility === selected.f.id)
     : null;
   const showInspect = Boolean(selected && inspectEvent && !showTriage);
+  // Any other click — same glass card chrome, live data only (no recommendations).
+  const showStatus = Boolean(selected && !showTriage && !showInspect && !simulating);
 
   const stationFailureId = (systemId: string) => {
     const hit = analysis.orderedFailures.find((c) => c.facility.system === systemId);
@@ -310,14 +326,14 @@ export default function Network() {
         <div className="map-float map-float-bl map-legend">
           <LegendChip src={mapArt.tank} label="facility" />
           <LegendChip src={mapArt.well} label="well" />
-          <LegendChip src={mapArt.disposal} label="disposal" />
+          <LegendChip src={oilCenterArt(1)} label="oil center" />
           <LegendChip src={mapArt.truck} label="trucks" />
           <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> flowing</span>
           <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leak</span>
         </div>
 
         <AnimatePresence>
-          {hover && live.get(hover) && !showTriage && (
+          {hover && live.get(hover) && !showTriage && !showInspect && !showStatus && (
             <motion.div
               key={hover}
               className="map-float map-hover-card"
@@ -346,6 +362,13 @@ export default function Network() {
             key={`inspect-${inspectEvent.id}`}
             live={selected}
             event={inspectEvent}
+            onClose={() => setParams({})}
+          />
+        )}
+        {showStatus && selected && (
+          <FacilityStatusCard
+            key={`status-${selected.f.id}`}
+            live={selected}
             onClose={() => setParams({})}
           />
         )}
@@ -420,26 +443,29 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
   const showWells = focused;
   const disposalKey = `${sys.id}-disposal`;
   const truckKey = `${sys.id}-trucks`;
-  const hubSize = (focused ? PIN.hubFocus : PIN.hub) * pinScale * (focused ? 0.95 : 0.72);
+  const oilSize = (focused ? PIN.oilCenterFocus : PIN.oilCenter) * pinScale;
+  const truckSize = (focused ? PIN.truckFocus : PIN.truck) * pinScale;
   const ps = pinScale * (focused ? 0.9 : 0.68);
+  const ringScale = focused ? 1.12 : 1;
 
   return (
     <g opacity={dim ? 0.12 : 1} style={{ transition: 'opacity .3s' }}>
       {/* Station pad — one island per system */}
       <circle
+        className="map-pad-glow"
         cx={station.ring.x}
         cy={station.ring.y}
-        r={station.ring.r}
-        fill={focused ? 'rgba(94,200,216,0.07)' : 'rgba(6,12,18,0.22)'}
-        stroke={focused ? 'rgba(94,200,216,0.4)' : 'rgba(255,255,255,0.1)'}
+        r={station.ring.r * ringScale}
+        fill={focused ? 'rgba(94,200,216,0.1)' : 'rgba(6,12,18,0.22)'}
+        stroke={focused ? 'rgba(94,200,216,0.4)' : 'rgba(255,255,255,0.14)'}
         strokeWidth={1.4 * inv}
-        style={{ pointerEvents: 'none' }}
+        style={{ pointerEvents: 'none', transition: 'r .35s ease' }}
       />
       {/* Overview only — focused view already has S# in the top chips; label collides with Facility A. */}
       {!focused && (
         <text
           x={station.ring.x}
-          y={station.ring.y - station.ring.r - 8 * inv}
+          y={station.ring.y - station.ring.r * ringScale - 8 * inv}
           textAnchor="middle"
           fontSize={Math.max(12, 14 * inv)}
           fontWeight={800}
@@ -480,8 +506,9 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
               strokeWidth={(leak ? 5 : flowing ? 3 : 1.8) * inv}
               opacity={leak ? 1 : flowing ? 0.85 : focused ? 0.35 : 0.2}
               strokeDasharray={leak ? `${6 * inv} ${5 * inv}` : flowing ? `${10 * inv} ${7 * inv}` : undefined}
+              className={flowing && !leak ? 'map-flow-dash' : undefined}
               style={{
-                animation: leak || flowing ? `flow ${leak ? 0.85 : 1.5}s linear infinite` : undefined,
+                animation: leak ? `flow ${0.85}s linear infinite` : undefined,
                 pointerEvents: 'none',
               }}
               filter={leak || flowing ? 'url(#glow)' : undefined}
@@ -505,9 +532,10 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
         onMouseEnter={() => setHover(disposalKey)}
         onMouseLeave={() => setHover(null)}
       >
+        <MapSteam inv={inv} intensity={focused ? 1.15 : 0.85} tone="haze" />
         <MapPin
           kind="disposal"
-          size={hubSize}
+          size={oilSize}
           inv={inv}
           badge={sys.id}
           active={hover === disposalKey || focused}
@@ -516,9 +544,9 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
         {/* Only the hovered hub — never keep disposal/truck labels on while focused. */}
         {hover === disposalKey && (
           <PinTip
-            title={`${sys.id} disposal`}
+            title={`${sys.id} oil center`}
             sub="station hub"
-            y={(hubSize * 0.55 + 10) * inv}
+            y={(oilSize * 0.55 + 10) * inv}
           />
         )}
       </g>
@@ -530,7 +558,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
       >
         <MapPin
           kind="truck"
-          size={hubSize}
+          size={truckSize}
           inv={inv}
           badge={sys.id}
           active={hover === truckKey || focused}
@@ -540,7 +568,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
           <PinTip
             title={`${sys.id} trucks`}
             sub="yard"
-            {...tipAwayFromHub(yx, yy, dx, dy, (hubSize * 0.58 + 18) * inv)}
+            {...tipAwayFromHub(yx, yy, dx, dy, (truckSize * 0.7 + 16) * inv)}
           />
         )}
       </g>
@@ -583,6 +611,11 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
             {failed && !showHalo && (
               <circle r={(pin * 0.28) * inv} fill="none" stroke="var(--coral)" strokeWidth={2 * inv} opacity={0.7} style={{ pointerEvents: 'none' }} />
             )}
+            <MapSteam
+              inv={inv}
+              intensity={failed ? 1.35 : trouble ? 1.1 : l.pumpStatus === 1 ? 0.9 : 0.55}
+              tone={failed ? 'flare' : trouble ? 'haze' : 'steam'}
+            />
             {showWells && f.wells.map((w, i) => {
               const ang = (-Math.PI / 2) + (i * 2 * Math.PI) / Math.max(1, nWells);
               const rad = (pin * 0.72) * inv;
@@ -637,32 +670,78 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
 }
 
 function HoverCard({ l }: { l: LiveFacility }) {
-  const hrsWarn = hoursToLimit(l.level, l.f.tank.capacity_bbl, Math.max(0, l.inflow - (l.pumpStatus === 1 ? l.pumpFlow : 0)), 85);
+  const netFill = Math.max(0, l.inflow - (l.pumpStatus === 1 ? l.pumpFlow : 0));
+  const hrsWarn = hoursToLimit(l.level, l.f.tank.capacity_bbl, netFill, 85);
+  const pumpMax = Math.max(1, l.f.pump.max_flow_bpd);
+  const pipeMax = Math.max(1, l.f.pipeline.max_bpd);
+  const online = l.wells.filter((w) => w.status === 1).length;
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="hover-card-viz">
+      <div className="hover-card-viz__head">
         <div style={{ position: 'relative' }}>
-          <img src={mapArt.tank} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+          <img src={mapArt.tank} alt="" width={44} height={44} style={{ objectFit: 'contain' }} />
           <span className="chip aqua" style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 10, padding: '1px 6px' }}>{facilityBadge(l.f.id)}</span>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <b>{fmt.short(l.f.id)}</b>
-          <div className="dim" style={{ fontSize: 11 }}>{l.f.lat.toFixed(4)} · {l.f.lon.toFixed(4)}</div>
+          <div className="dim" style={{ fontSize: 11 }}>{l.f.system} · {l.f.lat.toFixed(4)}, {l.f.lon.toFixed(4)}</div>
         </div>
-        <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
+        <span className="chip ghost" style={{ color: statusColor[l.status] }}>
+          <i className="dot" style={{ background: statusColor[l.status] }} />
+          {statusLabel[l.status]}
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-        <span className="chip ghost">tank {l.level.toFixed(0)}%</span>
+
+      <div className="hover-card-viz__meters">
+        <LiquidMeter
+          label="Tank"
+          value={l.level}
+          max={100}
+          warn={85}
+          shut={92}
+          display={`${l.level.toFixed(0)}% · ${fmt.num(l.f.tank.capacity_bbl)} bbl`}
+          fluid="water"
+          height={12}
+        />
+        <LiquidMeter
+          label="Pump"
+          value={l.pumpStatus === 1 ? l.pumpFlow : 0}
+          max={pumpMax}
+          display={l.pumpStatus === 2 ? 'fault' : l.pumpStatus === 1 ? `${fmt.num(l.pumpFlow)} bpd` : 'off'}
+          fluid="oil"
+          height={12}
+        />
+        <LiquidMeter
+          label="Inflow"
+          value={l.inflow}
+          max={Math.max(l.inflow, pumpMax)}
+          display={`${fmt.num(l.inflow)} bpd`}
+          fluid="water"
+          height={12}
+        />
+        <LiquidMeter
+          label="Pipeline"
+          value={l.recv}
+          max={pipeMax}
+          display={`${fmt.num(l.recv)} bpd · ${fmt.num(l.pipePsi)} psi`}
+          fluid="brine"
+          height={12}
+        />
+        <LiquidMeter
+          label="Wells"
+          value={online}
+          max={Math.max(1, l.wells.length)}
+          display={`${online}/${l.wells.length} online`}
+          fluid="gas"
+          height={12}
+        />
+      </div>
+
+      <div className="hover-card-viz__chips">
         <span className="chip ghost">trucks {l.f.response_min} min</span>
-        {l.planOverlay && <span className="chip mint tip">plan live<span className="tipbox">{l.planOverlay.label} — tank/wells follow your dispatch, pump fault still from sensors</span></span>}
+        {l.planOverlay && <span className="chip mint">plan live</span>}
         {isFinite(hrsWarn) && hrsWarn < 48 && <span className="chip amber">warn in {fmt.dur(hrsWarn)}</span>}
       </div>
-      <dl className="kv" style={{ marginTop: 10 }}>
-        <dt>Tank</dt><dd>{l.level.toFixed(1)}% of {fmt.num(l.f.tank.capacity_bbl)} bbl</dd>
-        <dt>Pump</dt><dd>{l.pumpStatus === 2 ? <span style={{ color: 'var(--coral)' }}>fault</span> : l.pumpStatus === 1 ? `${fmt.num(l.pumpFlow)} bpd` : 'off'}</dd>
-        <dt>Inflow</dt><dd>{fmt.num(l.inflow)} bpd</dd>
-        <dt>Pipeline</dt><dd>{fmt.num(l.recv)} bpd · {fmt.num(l.pipePsi)} psi</dd>
-      </dl>
     </div>
   );
 }

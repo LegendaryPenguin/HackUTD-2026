@@ -4,17 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, LineChart, Play, Send, X } from 'lucide-react';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
-import { systemThreadArt } from './MapMarkers';
+import { mapArt } from './MapMarkers';
 import { PlanTraceChart } from './PlanTraceChart';
 import { calcBreakdown } from '../lib/financials';
 import { representativePlans } from '../lib/scenarios';
 import type { LiveFacility } from '../lib/status';
 import type { PlanOption } from '../lib/types';
-import ReflectiveCard from './ReflectiveCard';
-
-/** Fixed ReflectiveCard footprint — Identify / Decide / Act share one size. */
-const CARD_W = 460;
-const CARD_H = 660;
+import { AvonCardShell } from './AvonCardShell';
+import { LiquidMeter } from './ui';
 
 type Step = 'identify' | 'decide' | 'act';
 const STEPS: Step[] = ['identify', 'decide', 'act'];
@@ -100,7 +97,6 @@ export function FacilityTriageCard({
     : '';
 
   const actionSteps = buildActionSteps(selected, fail.facility.response_min, repairH, stationName);
-  const systemArt = systemThreadArt(live.f.system);
 
   const simulate = () => {
     startSimulate(fail.event.id, selected);
@@ -112,125 +108,104 @@ export function FacilityTriageCard({
   };
 
   return (
-    <div className="triage-scrim" onClick={onClose} role="presentation">
-      <motion.div
-        className="triage-card triage-card--reflective"
-        role="dialog"
-        aria-modal
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 12 }}
-        style={{ margin: 'auto' }}
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <AvonCardShell
+        onClose={onClose}
+        topLeft={step !== 'identify' ? (
+          <button
+            type="button"
+            className="avon-panel__back"
+            onClick={() => setStep(step === 'act' ? 'decide' : 'identify')}
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+        ) : undefined}
+        topCenter={(
+          <div className="avon-steps" aria-label="Triage steps">
+            {STEPS.map((s) => (
+              <span key={s} className={`avon-steps__item ${s === step ? 'is-active' : ''}`}>
+                {STEP_LABEL[s]}
+              </span>
+            ))}
+          </div>
+        )}
       >
-        <ReflectiveCard
-          theme="dark"
-          tint="#9ae4ef"
-          metalness={0.88}
-          roughness={0.4}
-          blurStrength={6}
-          grayscale={0.9}
-          warp={0.45}
-          shine={0.95}
-          glare={0.45}
-          bevel={3}
-          enableTilt
-          tiltStrength={8}
-          intro
-          webcam={false}
-          width={CARD_W}
-          height={CARD_H}
-          radius={20}
-          className="night-reflective"
-        >
-          <div className="rc-flow">
-            <div className="rc-flow__top">
-              {step !== 'identify' ? (
-                <button
-                  type="button"
-                  className="rc-flow__back"
-                  onClick={() => setStep(step === 'act' ? 'decide' : 'identify')}
-                >
-                  <ArrowLeft size={14} /> Back
-                </button>
-              ) : <span />}
-              <div className="rc-steps" aria-label="Triage steps">
-                {STEPS.map((s) => (
-                  <span key={s} className={`rc-steps__item ${s === step ? 'is-active' : ''}`}>
-                    {STEP_LABEL[s]}
-                  </span>
-                ))}
-              </div>
-              <button type="button" className="rc-flow__close" onClick={onClose} aria-label="Close">
-                <X size={16} />
-              </button>
-            </div>
-
             {step === 'identify' && (
-              <div className="rc-triage">
-                <div className="rc-triage__head">
-                  <div className="rc-triage__icon">
-                    <img src={systemArt} alt="" width={56} height={40} />
+              <div className="avon-status">
+                <div className="triage-head">
+                  <div className="triage-icon">
+                    <img src={mapArt.tank} alt="" width={64} height={48} />
                   </div>
-                  <div className="rc-triage__head-copy">
-                    <div className="rc-triage__title-row">
-                      <h2 className="rc-triage__title">{stationName}</h2>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="triage-title-row">
+                      <h2 className="triage-title">{fmt.short(live.f.id)}</h2>
                       <span className="chip coral">Pump stopped</span>
                     </div>
-                    <p className="rc-triage__body">
+                    <p className="triage-sentence">
                       The pump that empties this tank has stopped. Water from the wells is still filling the tank.
                     </p>
                   </div>
                 </div>
 
-                <div className="rc-triage__facts rc-triage__facts--3">
-                  <div className="rc-triage__fact-col">
-                    <b>Where</b>
-                    <span>{stationName}</span>
+                <div className="triage-facts">
+                  <div>
+                    <div className="triage-fact-label">Where</div>
+                    <div>{stationName}</div>
                   </div>
-                  <div className="rc-triage__fact-col">
-                    <b>What broke</b>
-                    <span>The pump (not the pipeline). Fault since {onsetLabel}.</span>
+                  <div>
+                    <div className="triage-fact-label">What broke</div>
+                    <div>The pump (not the pipeline). Fault since {onsetLabel}.</div>
                   </div>
-                  <div className="rc-triage__fact-col">
-                    <b>Why it matters</b>
-                    <span>If the tank hits 92% full, every well here is forced off until the pump is fixed (~{repairH} hours).</span>
+                  <div>
+                    <div className="triage-fact-label">Why it matters</div>
+                    <div>If the tank hits 92% full, every well here is forced off until the pump is fixed (~{repairH} hours).</div>
                   </div>
                 </div>
 
-                <div className="rc-triage__pulse">
-                  <strong>{leftWords} left until the tank hits 92%.</strong>
-                  <span>
+                <div className="triage-countdown">
+                  <div className="triage-countdown-main">{leftWords} left until the tank hits 92%.</div>
+                  <div className="triage-countdown-sub">
                     Tank is {fail.levelPct.toFixed(0)}% full now · filling from {fail.producingWells.length} wells · {fmt.num(fail.inflowBpd)} bpd.
-                  </span>
+                  </div>
                 </div>
+
+                <LiquidMeter
+                  label="Tank fill"
+                  display={`${fail.levelPct.toFixed(0)}%`}
+                  value={fail.levelPct}
+                  max={100}
+                  warn={85}
+                  shut={92}
+                  fluid="water"
+                  height={14}
+                />
 
                 {rec && (
-                  <div className="rc-triage__chart">
-                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={100} compact />
+                  <div className="avon-status__chart">
+                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={96} compact />
                   </div>
                 )}
 
-                <div className="rc-triage__impact rc-triage__impact--row">
-                  <div className="rc-triage__chip coral">
-                    <div className="rc-triage__chip-kicker">Doing nothing</div>
-                    <div className="rc-triage__chip-value">~{fmt.money(fail.doNothingCost)} lost</div>
-                    <div className="rc-triage__chip-sub">Wells forced off in {leftLabel} · production stops until repair.</div>
+                <div className="avon-status__chips">
+                  <div className="avon-status__chip is-coral">
+                    <div className="triage-fact-label">Doing nothing</div>
+                    <b>~{fmt.money(fail.doNothingCost)} lost</b>
+                    <span>Wells forced off in {leftLabel} · production stops until repair.</span>
                   </div>
                   {rec && (
-                    <div className="rc-triage__chip mint">
-                      <div className="rc-triage__chip-kicker">With recommended plan</div>
-                      <div className="rc-triage__chip-value mint">Saves ~{fmt.money(savedRec)}</div>
-                      <div className="rc-triage__chip-sub">{truckBlurb}</div>
+                    <div className="avon-status__chip is-mint">
+                      <div className="triage-fact-label">With recommended plan</div>
+                      <b>Saves ~{fmt.money(savedRec)}</b>
+                      <span>{truckBlurb}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="rc-flow__foot">
-                  <button type="button" className="rc-triage__cta" onClick={() => setStep('decide')}>
-                    Next: Decide <ArrowRight size={16} />
+                <div className="triage-actions" style={{ flexDirection: 'column', gap: 8 }}>
+                  <button type="button" className="btn primary triage-cta" onClick={() => setStep('decide')}>
+                    Next: choose a plan <ArrowRight size={16} />
                   </button>
-                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
+                  <Link to="/alerts" className="btn ghost sm" onClick={onClose} style={{ justifyContent: 'center' }}>
                     <LineChart size={14} /> In-depth analysis
                   </Link>
                 </div>
@@ -238,13 +213,13 @@ export function FacilityTriageCard({
             )}
 
             {step === 'decide' && (
-              <div className="rc-decide">
-                <div>
-                  <h2 className="rc-plans__title">Choose a plan</h2>
-                  <p className="rc-plans__sub">{stationName} · pick one path, then Act</p>
+              <div className="avon-status">
+                <div className="triage-plans-head">
+                  <h2 className="triage-title" style={{ fontSize: 22, textAlign: 'center' }}>Choose a plan</h2>
+                  <p className="triage-plans-sub">{stationName} · pick one path, then Act</p>
                 </div>
 
-                <div className="rc-decide__choices">
+                <div className="avon-plan-choices">
                   {options.map((o) => {
                     const isSel = o.label === selected.label;
                     const isRec = !!o.recommended || o.label === rec?.label;
@@ -252,122 +227,110 @@ export function FacilityTriageCard({
                       <button
                         key={o.label}
                         type="button"
-                        className={`rc-choice ${isSel ? 'is-selected' : ''} ${isRec ? 'is-rec' : ''}`}
+                        className={`avon-plan-choice ${isSel ? 'is-selected' : ''} ${isRec ? 'is-rec' : ''}`}
                         onClick={() => setSelectedLabel(o.label)}
                       >
-                        {isRec && <span className="rc-choice__tag">Recommended</span>}
-                        <span className="rc-choice__label">{o.label}</span>
-                        <span className="rc-choice__cost">{fmt.money(o.cost)}</span>
+                        {isRec && <span className="chip mint">Recommended</span>}
+                        <span className="avon-plan-choice__label">{o.label}</span>
+                        <span className="avon-plan-choice__cost">{fmt.money(o.cost)}</span>
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="rc-triage__impact rc-triage__impact--row">
-                  <div className="rc-triage__chip coral">
-                    <div className="rc-triage__chip-kicker">Doing nothing</div>
-                    <div className="rc-triage__chip-value">~{fmt.money(fail.doNothingCost)}</div>
-                    <button type="button" className="rc-link" onClick={() => setCalc({ kind: 'nothing', plan: selected })}>
+                <div className="avon-status__chips">
+                  <div className="avon-status__chip is-coral">
+                    <div className="triage-fact-label">Doing nothing</div>
+                    <b>~{fmt.money(fail.doNothingCost)}</b>
+                    <button type="button" className="btn ghost sm" onClick={() => setCalc({ kind: 'nothing', plan: selected })}>
                       See calculation
                     </button>
                   </div>
-                  <div className="rc-triage__chip mint">
-                    <div className="rc-triage__chip-kicker">This plan saves</div>
-                    <div className="rc-triage__chip-value mint">{moneyShort(savedSel)}</div>
-                    <button type="button" className="rc-link" onClick={() => setCalc({ kind: 'plan', plan: selected })}>
+                  <div className="avon-status__chip is-mint">
+                    <div className="triage-fact-label">This plan saves</div>
+                    <b>{moneyShort(savedSel)}</b>
+                    <button type="button" className="btn ghost sm" onClick={() => setCalc({ kind: 'plan', plan: selected })}>
                       See calculation
                     </button>
                   </div>
                 </div>
 
-                <div className="rc-flow__foot">
-                  <div className="rc-plan__actions rc-decide__actions">
-                    <button type="button" className="sim" onClick={simulate}>
-                      <Play size={14} /> Simulate
-                    </button>
-                    <button type="button" className="act" onClick={() => setStep('act')}>
-                      Act <ArrowRight size={14} />
-                    </button>
-                  </div>
-                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
-                    <LineChart size={14} /> In-depth analysis
-                  </Link>
+                <div className="triage-actions" style={{ gap: 8 }}>
+                  <button type="button" className="btn ghost" onClick={simulate}>
+                    <Play size={14} /> Simulate
+                  </button>
+                  <button type="button" className="btn primary" onClick={() => setStep('act')} style={{ flex: 1 }}>
+                    Act <ArrowRight size={14} />
+                  </button>
                 </div>
               </div>
             )}
 
             {step === 'act' && (
-              <div className="rc-act">
-                <div>
-                  <h2 className="rc-plans__title">Plan of action</h2>
-                  <p className="rc-plans__sub">{selected.label} · {fmt.money(selected.cost)}</p>
+              <div className="avon-status">
+                <div className="triage-plans-head">
+                  <h2 className="triage-title" style={{ fontSize: 22, textAlign: 'center' }}>Plan of action</h2>
+                  <p className="triage-plans-sub">{selected.label} · {fmt.money(selected.cost)}</p>
                 </div>
 
-                <div className="rc-act__hero">
-                  <img src={systemArt} alt="" width={48} height={34} />
+                <div className="avon-act-hero">
+                  <img src={mapArt.tank} alt="" width={48} height={34} />
                   <div>
                     <strong>{stationName}</strong>
                     <span>Saves {moneyShort(savedSel)} vs doing nothing · peak {selected.peakPct.toFixed(0)}%</span>
                   </div>
                 </div>
 
-                <ol className="rc-act__steps">
+                <ol className="avon-act-steps">
                   {actionSteps.map((line, i) => (
                     <li key={line}>
-                      <span className="rc-act__num">{i + 1}</span>
-                      <span>{line}</span>
+                      <span>{i + 1}</span>
+                      <p>{line}</p>
                     </li>
                   ))}
                 </ol>
 
-                <div className="rc-triage__chip mint" style={{ margin: 0 }}>
+                <div className="avon-status__chip is-mint">
                   Cost {fmt.money(selected.cost)}
                   {selected.truckCost > 0 ? ` · trucks ${fmt.money(selected.truckCost)}` : ''}
                   {selected.shutInCost > 0 ? ` · shut-ins ${fmt.money(selected.shutInCost)}` : ''}
                 </div>
 
-                <div className="rc-flow__foot">
-                  <div className="rc-plan__actions rc-decide__actions">
-                    <button type="button" className="sim" onClick={simulate}>
-                      <Play size={14} /> Simulate first
-                    </button>
-                    <button type="button" className="act primary" onClick={commit}>
-                      <Send size={14} /> Put into action
-                    </button>
-                  </div>
-                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
-                    <LineChart size={14} /> In-depth analysis
-                  </Link>
+                <div className="triage-actions" style={{ gap: 8 }}>
+                  <button type="button" className="btn ghost" onClick={simulate}>
+                    <Play size={14} /> Simulate first
+                  </button>
+                  <button type="button" className="btn primary" onClick={commit} style={{ flex: 1 }}>
+                    <Send size={14} /> Put into action
+                  </button>
                 </div>
               </div>
             )}
-          </div>
-        </ReflectiveCard>
+      </AvonCardShell>
 
-        <AnimatePresence>
-          {calc && (
-            <motion.div className="calc-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCalc(null)}>
-              <motion.div className="calc-modal" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <b>{calc.kind === 'nothing' ? 'Doing nothing' : 'This plan'}</b>
-                  <button type="button" className="btn ghost sm" onClick={() => setCalc(null)}><X size={14} /></button>
-                </div>
-                <dl className="kv">
-                  {(calc.kind === 'nothing'
-                    ? calcBreakdown(fail, calc.plan).doNothing.lines
-                    : calcBreakdown(fail, calc.plan).plan.lines
-                  ).map((row) => (
-                    <div key={row.label} style={{ display: 'contents' }}>
-                      <dt>{row.label}</dt><dd>{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </motion.div>
+      <AnimatePresence>
+        {calc && (
+          <motion.div className="calc-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCalc(null)}>
+            <motion.div className="calc-modal" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <b>{calc.kind === 'nothing' ? 'Doing nothing' : 'This plan'}</b>
+                <button type="button" className="btn ghost sm" onClick={() => setCalc(null)}><X size={14} /></button>
+              </div>
+              <dl className="kv">
+                {(calc.kind === 'nothing'
+                  ? calcBreakdown(fail, calc.plan).doNothing.lines
+                  : calcBreakdown(fail, calc.plan).plan.lines
+                ).map((row) => (
+                  <div key={row.label} style={{ display: 'contents' }}>
+                    <dt>{row.label}</dt><dd>{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

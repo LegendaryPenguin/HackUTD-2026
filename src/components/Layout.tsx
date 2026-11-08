@@ -1,16 +1,14 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { ChevronDown, FolderOpen } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import emblem from '../assets/emblem.jpg';
-import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
+import topoTide from '../assets/night-tide/backgrounds/wireframe-tide-map.jpg';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
 import { SideRail } from './motion/SideRail';
 import { TideDock } from './TideDock';
 
 export function Layout() {
-  const { datasets, dataset, load, loadFiles, loading, error, liveNow, analysis } = useStore();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { dataset, loading, analysis, liveNow } = useStore();
   /** Map-first: rail closed until operator opens it. */
   const [railOpen, setRailOpen] = useState(false);
   const location = useLocation();
@@ -33,7 +31,7 @@ export function Layout() {
   return (
     <div
       className={[
-        'shell',
+        'shell no-topbar',
         railOpen ? 'is-rail-open' : 'is-rail-closed',
         mapMode ? 'map-mode' : '',
         trendsMode ? 'trends-mode' : '',
@@ -44,7 +42,7 @@ export function Layout() {
     >
       {fieldBackdrop && (
         <div className="field-stage-bg" aria-hidden>
-          <div className="field-stage-photo" style={{ backgroundImage: `url(${fieldBg})` }} />
+          <div className="field-stage-photo" style={{ backgroundImage: `url(${topoTide})` }} />
           <div className="field-stage-veil" />
         </div>
       )}
@@ -53,36 +51,6 @@ export function Layout() {
         <span className="orb b" />
         <span className="orb c" />
       </div>
-      <header className="topbar">
-        <div className="brand">
-          <img src={emblem} alt="" />
-          <div>
-            <span className="sig">Avon</span>
-            <small>Night Tide · water ops</small>
-          </div>
-        </div>
-
-        <div className="select" title="Dataset folder (data/<folder>)">
-          <select value={dataset?.name ?? ''} onChange={(e) => load(e.target.value)} disabled={!!loading}>
-            {dataset && !datasets.includes(dataset.name) && <option value={dataset.name}>{dataset.name}</option>}
-            {datasets.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} />
-        </div>
-        <button className="btn ghost sm" onClick={() => fileRef.current?.click()} title="Open a folder with network.json, ops.json, telemetry.csv">
-          <FolderOpen size={14} /> Open folder
-        </button>
-        <input ref={fileRef} type="file" hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} multiple onChange={(e) => e.target.files && loadFiles(e.target.files)} />
-        {error && <span className="chip coral">{error}</span>}
-
-        {dataset && (
-          <div className="topbar-live" title={fmt.dayTime(liveNow)}>
-            <span className="chip ghost"><i className="dot live" /> LIVE END · {fmt.dayTime(liveNow)}</span>
-          </div>
-        )}
-      </header>
 
       <SideRail
         alertCount={nFail + nOther}
@@ -109,7 +77,7 @@ export function Layout() {
           <div className="empty" style={{ height: '100%' }}>
             <div>
               <h2 className="page-title">No dataset found</h2>
-              <p>Put a folder with <code>network.json</code>, <code>ops.json</code> and <code>telemetry.csv</code> under <code>data/</code>, or use <b>Open folder</b>.</p>
+              <p>Put a folder with <code>network.json</code>, <code>ops.json</code> and <code>telemetry.csv</code> under <code>data/</code>, or open the menu and use <b>Open folder</b>.</p>
             </div>
           </div>
         )}

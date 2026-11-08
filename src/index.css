@@ -67,7 +67,7 @@
   --nav-w: 0px;
   --nav-open: 248px;
   --nav-collapsed: 0px;
-  --top-h: 66px;
+  --top-h: 0px;
   --dock-h: 108px;
 }
 
@@ -119,36 +119,23 @@ a:hover { color: var(--ink-0); }
 .shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--top-h) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
+}
+.shell.no-topbar {
+  --top-h: 0px;
+  grid-template-rows: minmax(0, 1fr);
 }
 .topbar-live {
   margin-left: auto;
   flex-shrink: 0;
 }
 .topbar {
-  position: relative;
-  grid-column: 1;
-  grid-row: 1;
-  display: flex; align-items: center; gap: 14px;
-  padding: 0 18px;
-  border-bottom: 0;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  z-index: 20;
-  min-width: 0;
-}
-.topbar::after {
-  content: '';
-  position: absolute;
-  left: 10%; right: 10%; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(148, 163, 176, 0.35), transparent);
-  pointer-events: none;
+  display: none;
 }
 .main {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   overflow: auto;
   position: relative;
   /* no z-index — keeps position:fixed triage above the tide-dock */
@@ -380,7 +367,7 @@ body:has(.shell.field-backdrop)::before {
 .big { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
 .num { font-variant-numeric: tabular-nums; }
 
-/* ---------- meters ---------- */
+/* ---------- meters (Enchantress) ---------- */
 .meter {
   position: relative; height: 14px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); overflow: hidden;
@@ -392,17 +379,93 @@ body:has(.shell.field-backdrop)::before {
 }
 .meter .fill.amber { background: linear-gradient(90deg, #9a7a48, var(--amber)); }
 .meter .fill.coral { background: linear-gradient(90deg, #d97a8a, var(--coral)); }
+.meter .fill.mint { background: linear-gradient(90deg, #2f7a62, var(--mint)); }
+.meter .fill.violet { background: linear-gradient(90deg, #6a5a9a, var(--violet)); }
 .meter .fill::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
   transform: translateX(-100%); animation: sheen 3.2s ease-in-out infinite;
 }
-.meter .mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink-0); opacity: 0.55; }
-.meter .mark.warn { background: var(--amber); }
-.meter .mark.shut { background: var(--coral); }
+.meter .mark,
+.liquid-meter__track .mark {
+  position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink-0); opacity: 0.55; z-index: 2;
+}
+.meter .mark.warn, .liquid-meter__track .mark.warn { background: var(--amber); }
+.meter .mark.shut, .liquid-meter__track .mark.shut { background: var(--coral); }
 .ruler { position: relative; height: 16px; margin-top: 4px; font-size: 10px; color: var(--ink-3); }
 .ruler span { position: absolute; transform: translateX(-50%); }
 .ruler span::before { content: ''; display: block; width: 1px; height: 4px; margin: 0 auto 1px; background: var(--ink-3); }
+
+/* Enchantress liquid bars — animated water / oil / brine / gas */
+.liquid-meter { display: flex; flex-direction: column; gap: 4px; }
+.liquid-meter__row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-size: 11px; color: var(--ink-2);
+}
+.liquid-meter__row b { color: var(--ink-0); font-size: 11.5px; font-weight: 700; text-align: right; }
+.liquid-meter__track {
+  position: relative; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.liquid-meter__track.is-warn { border-color: rgba(232, 184, 109, 0.35); }
+.liquid-meter__track.is-hot { border-color: rgba(240, 138, 154, 0.4); }
+.liquid-meter__fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: inherit; overflow: hidden;
+  min-width: 0;
+}
+.liquid-meter__wave {
+  position: absolute; inset: -20% -50%;
+  background:
+    radial-gradient(ellipse 40% 55% at 20% 40%, rgba(255, 255, 255, 0.28), transparent 55%),
+    radial-gradient(ellipse 35% 50% at 55% 55%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(ellipse 30% 45% at 85% 35%, rgba(255, 255, 255, 0.22), transparent 55%);
+  opacity: 0.85;
+  animation: liquid-wave 2.8s linear infinite;
+}
+.liquid-meter__wave.b {
+  opacity: 0.45;
+  animation-duration: 4.2s;
+  animation-direction: reverse;
+  mix-blend-mode: soft-light;
+}
+.liquid-meter__sheen {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 48%, transparent 100%);
+  transform: translateX(-100%);
+  animation: sheen 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.liquid-meter__fill.fluid-water {
+  background:
+    linear-gradient(180deg, rgba(180, 240, 255, 0.55) 0%, transparent 42%),
+    linear-gradient(90deg, #2a6f7c 0%, #4eb8c8 42%, #9ae4ef 100%);
+  box-shadow: 0 0 14px rgba(94, 200, 216, 0.35);
+}
+.liquid-meter__fill.fluid-oil {
+  background:
+    linear-gradient(180deg, rgba(255, 220, 160, 0.35) 0%, transparent 40%),
+    linear-gradient(90deg, #5a3a18 0%, #a67a38 38%, #d4a04a 100%);
+  box-shadow: 0 0 14px rgba(212, 160, 74, 0.28);
+}
+.liquid-meter__fill.fluid-brine {
+  background:
+    linear-gradient(180deg, rgba(200, 255, 230, 0.4) 0%, transparent 42%),
+    linear-gradient(90deg, #1f5a48 0%, #3d9a7a 45%, #7dcea0 100%);
+  box-shadow: 0 0 14px rgba(125, 206, 160, 0.3);
+}
+.liquid-meter__fill.fluid-gas {
+  background:
+    linear-gradient(180deg, rgba(220, 210, 255, 0.4) 0%, transparent 42%),
+    linear-gradient(90deg, #4a3f78 0%, #7a6bb0 45%, #c4b6f0 100%);
+  box-shadow: 0 0 14px rgba(168, 154, 212, 0.28);
+}
+@keyframes liquid-wave {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(-12%) translateY(2%); }
+  100% { transform: translateX(-25%) translateY(0); }
+}
 
 /* ---------- tooltips ---------- */
 .tip { position: relative; }
@@ -702,7 +765,7 @@ body:has(.shell.field-backdrop)::before {
 }
 @media (max-width: 900px) {
   :root {
-    --top-h: 52px;
+    --top-h: 0px;
     --nav-bottom-h: calc(60px + env(safe-area-inset-bottom, 0px));
     --map-rail-h: 108px;
   }
@@ -714,35 +777,13 @@ body:has(.shell.field-backdrop)::before {
 
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--top-h) minmax(0, 1fr) var(--nav-bottom-h);
+    grid-template-rows: minmax(0, 1fr) var(--nav-bottom-h);
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
   }
-  .main { grid-row: 2; padding-left: 0 !important; }
-
-  .topbar {
-    position: relative;
-    gap: 6px;
-    padding: 0 8px;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .topbar .btn.ghost { display: none; }
-  .topbar .select { flex: 0 1 auto; min-width: 0; }
-  .topbar .select select {
-    max-width: min(108px, 28vw);
-    padding: 6px 26px 6px 8px;
-    font-size: 11px;
-    border-radius: 10px;
-    text-overflow: ellipsis;
-  }
-  .topbar .select svg { right: 8px; width: 12px; height: 12px; }
-
-  .brand { gap: 7px; flex-shrink: 0; }
-  .brand img { width: 28px; height: 28px; border-radius: 9px; }
-  .brand .sig { font-size: 12px; letter-spacing: 0.06em; }
-  .brand small { display: none; }
+  .main { grid-row: 1; padding-left: 0 !important; }
+  .topbar { display: none !important; }
 
   .timebar { margin-left: auto; flex: 0 0 auto; max-width: 46%; }
   .time-chip {
@@ -841,18 +882,20 @@ body:has(.shell.field-backdrop)::before {
     justify-content: center;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   }
+  .triage-scrim--status {
+    align-items: flex-end;
+    padding-top: 8px;
+  }
   .shell.is-rail-open .triage-scrim,
   .shell.is-rail-open .calc-scrim {
     padding-left: 8px;
   }
   .triage-card,
-  .triage-card--reflective {
-    width: min(100%, 560px);
-    max-height: min(78dvh, 720px);
+  .avon-panel {
+    width: min(100%, 520px);
+    max-height: min(82dvh, 720px);
   }
-  .night-reflective {
-    max-width: 100%;
-  }
+  .avon-status__chips { grid-template-columns: 1fr; }
   .cost-strip { grid-template-columns: 1fr; }
   .event-row { grid-template-columns: 1fr; }
   .grid.c2 { grid-template-columns: 1fr; }

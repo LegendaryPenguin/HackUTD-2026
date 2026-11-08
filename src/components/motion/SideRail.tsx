@@ -12,6 +12,8 @@ import {
 import {
   Activity,
   Bell,
+  ChevronDown,
+  FolderOpen,
   Fuel,
   Map as MapIcon,
   PanelLeftClose,
@@ -54,7 +56,8 @@ export function SideRail({
 }) {
   const reduce = useReducedMotion();
   const mouseY = useMotionValue(-9999);
-  const { analysis } = useStore();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { analysis, datasets, dataset, load, loadFiles, loading, error, liveNow } = useStore();
   const hottest = analysis?.orderedFailures[0];
   const plan = hottest ? analysis?.systemPlans[hottest.facility.system]?.plans[hottest.event.id] : undefined;
 
@@ -125,6 +128,41 @@ export function SideRail({
             >
               <PanelLeftClose size={15} />
             </button>
+          </div>
+
+          <div className="rail-dataset">
+            <div className="rail-group-label">Dataset</div>
+            <div className="rail-select" title="Dataset folder (data/<folder>)">
+              <select value={dataset?.name ?? ''} onChange={(e) => load(e.target.value)} disabled={!!loading}>
+                {dataset && !datasets.includes(dataset.name) && <option value={dataset.name}>{dataset.name}</option>}
+                {datasets.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} />
+            </div>
+            <button
+              type="button"
+              className="rail-folder-btn"
+              onClick={() => fileRef.current?.click()}
+              title="Open a folder with network.json, ops.json, telemetry.csv"
+            >
+              <FolderOpen size={14} /> Open folder
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+              multiple
+              onChange={(e) => e.target.files && loadFiles(e.target.files)}
+            />
+            {error && <span className="chip coral" style={{ width: '100%', justifyContent: 'center' }}>{error}</span>}
+            {dataset && (
+              <span className="rail-live" title={fmt.dayTime(liveNow)}>
+                <i className="dot live" /> LIVE END · {fmt.dayTime(liveNow)}
+              </span>
+            )}
           </div>
 
           <div className="rail-nav">

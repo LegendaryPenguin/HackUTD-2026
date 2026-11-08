@@ -4,42 +4,52 @@ import tankArt from '../assets/night-tide/icons/facility-tank.png';
 import wellArt from '../assets/night-tide/icons/well-pumpjack.png';
 import disposalArt from '../assets/night-tide/icons/disposal-intake.png';
 import truckArt from '../assets/night-tide/icons/tanker-truck.png';
-import systemS1 from '../assets/night-tide/icons/systems/system-S1.png';
-import systemS2 from '../assets/night-tide/icons/systems/system-S2.png';
-import systemS3 from '../assets/night-tide/icons/systems/system-S3.png';
-import systemS4 from '../assets/night-tide/icons/systems/system-S4.png';
-import systemS5 from '../assets/night-tide/icons/systems/system-S5.png';
+import oilCenter1 from '../assets/night-tide/icons/oil-centers/oil-center-1.png';
+import oilCenter2 from '../assets/night-tide/icons/oil-centers/oil-center-2.png';
+import oilCenter3 from '../assets/night-tide/icons/oil-centers/oil-center-3.png';
+import oilCenter4 from '../assets/night-tide/icons/oil-centers/oil-center-4.png';
+import oilCenter5 from '../assets/night-tide/icons/oil-centers/oil-center-5.png';
 import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
 import basinBg from '../assets/night-tide/backgrounds/midnight-permian-basin.png';
 import desertBg from '../assets/night-tide/backgrounds/miniature-desert.png';
 import wireframeTide from '../assets/night-tide/backgrounds/wireframe-tide.jpg';
+import topoTide from '../assets/night-tide/backgrounds/wireframe-tide-map.jpg';
 
-/**
- * Station icon set toggle.
- * - false → original Night Tide tanks + letter badge (active now)
- * - true  → S1–S5 building stickers (previous set — flip this if you want them back)
- */
-export const USE_BUILDING_STATION_ICONS = false;
+/** Periwinkle / seafoam + sibling palette — cycle when oil centers exceed 5. */
+export const OIL_CENTER_ICONS = [
+  oilCenter1,
+  oilCenter2,
+  oilCenter3,
+  oilCenter4,
+  oilCenter5,
+] as const;
 
-/** Building-thread stickers kept on disk so we can flip back instantly. */
-const buildingThreads: Record<string, string> = {
-  S1: systemS1,
-  S2: systemS2,
-  S3: systemS3,
-  S4: systemS4,
-  S5: systemS5,
+/** 1-based oil-center index → icon (wraps for S6+, facility 6+, etc.). */
+export function oilCenterArt(index1Based: number): string {
+  const n = OIL_CENTER_ICONS.length;
+  const i = ((Math.floor(index1Based) - 1) % n + n) % n;
+  return OIL_CENTER_ICONS[i];
+}
+
+/** S1→1 … S5→5; unknown ids fall back to 1. */
+export function systemOilCenterIndex(systemId: string): number {
+  const m = systemId.toUpperCase().match(/S(\d+)/);
+  if (m) return Math.max(1, parseInt(m[1], 10));
+  return 1;
+}
+
+/** Building-thread stickers for S1–S5 (and beyond via wrap). */
+export const systemThreads: Record<string, string> = {
+  S1: oilCenterArt(1),
+  S2: oilCenterArt(2),
+  S3: oilCenterArt(3),
+  S4: oilCenterArt(4),
+  S5: oilCenterArt(5),
 };
 
-/** Active station art map (tank originals, or buildings when the flag is on). */
-export const systemThreads: Record<string, string> = USE_BUILDING_STATION_ICONS
-  ? buildingThreads
-  : { S1: tankArt, S2: tankArt, S3: tankArt, S4: tankArt, S5: tankArt };
-
+/** Oil-center (disposal hub) art for a system id. */
 export function systemThreadArt(systemId: string): string {
-  if (!USE_BUILDING_STATION_ICONS) return tankArt;
-  const key = systemId.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const m = key.match(/S[1-5]/);
-  return buildingThreads[m?.[0] ?? key] ?? systemS1;
+  return oilCenterArt(systemOilCenterIndex(systemId));
 }
 
 export const mapArt = {
@@ -48,7 +58,7 @@ export const mapArt = {
   pump: wellArt,
   disposal: disposalArt,
   truck: truckArt,
-  system: USE_BUILDING_STATION_ICONS ? systemS1 : tankArt,
+  system: oilCenterArt(1),
 } as const;
 
 export const mapBackgrounds = {
@@ -56,6 +66,8 @@ export const mapBackgrounds = {
   basin: basinBg,
   desert: desertBg,
   wireframe: wireframeTide,
+  /** Primary field map — cyber topo grid */
+  topo: topoTide,
 } as const;
 
 export type MapArtKind = keyof typeof mapArt;
@@ -94,27 +106,26 @@ export function MapPin({
   const scale = active ? 1.12 : 1;
   const shadowColor = glow ?? '#0a1c28';
   const badgeR = Math.max(9 * inv, s * 0.18);
-  const systemKey = kind === 'system' && badge
-    ? (badge.toUpperCase().match(/S[1-5]/)?.[0] ?? badge.toUpperCase())
+
+  // Oil-center buildings sit on the middle disposal hub (and kind="system"), not tanks.
+  const hubSystem = (kind === 'disposal' || kind === 'system') && badge
+    ? (badge.toUpperCase().match(/S\d+/)?.[0] ?? badge.toUpperCase())
     : undefined;
-  const useBuilding = USE_BUILDING_STATION_ICONS && Boolean(systemKey);
-  const system = useBuilding && systemKey ? buildingThreads[systemKey] : undefined;
-  const src = system ?? (kind === 'system' ? tankArt : mapArt[kind]);
-  // Buildings: cover baked S# glyphs with one plate. Tanks use the normal badge chip.
-  const showSystemPlate = Boolean(system && systemKey);
-  const showBadge = Boolean(badge) && !showSystemPlate;
+  const isOilCenter = Boolean(hubSystem) || kind === 'system';
+  const src = isOilCenter
+    ? oilCenterArt(systemOilCenterIndex(hubSystem ?? badge ?? 'S1'))
+    : mapArt[kind];
+
+  const showBadge = Boolean(badge);
   const half = s / 2;
-  const isWide = Boolean(system);
-  const useShadow = !system;
-  const imgH = isWide ? s * 0.72 : s;
-  const imgY = isWide ? -half * 0.72 : -half;
-  // Letter band sits mid-lower on Night Tide stickers — mask + single stamp.
-  const maskGradId = `sys-mask-${uid}`;
-  const coverW = Math.max(36 * inv, s * 0.62);
-  const coverH = Math.max(24 * inv, s * 0.34);
-  const coverY = imgY + imgH * 0.5;
-  const plateW = Math.max(28 * inv, s * 0.36);
-  const plateH = Math.max(14 * inv, s * 0.17);
+  const isWide = isOilCenter;
+  const isTruck = kind === 'truck';
+  const useShadow = !isOilCenter;
+  // Tanker is a wide side profile; oil centers read taller.
+  const imgW = isTruck ? s * 1.7 : s;
+  const imgH = isWide ? s * 0.86 : isTruck ? s * 0.7 : s;
+  const imgX = isTruck ? -imgW / 2 : -half;
+  const imgY = isWide ? -half * 0.86 : isTruck ? -imgH * 0.55 : -half;
   return (
     <g
       opacity={dim ? 0.32 : 1}
@@ -138,13 +149,6 @@ export function MapPin({
             />
           </filter>
         )}
-        {showSystemPlate && (
-          <linearGradient id={maskGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgb(8,14,20)" stopOpacity="0" />
-            <stop offset="28%" stopColor="rgb(8,14,20)" stopOpacity="0.92" />
-            <stop offset="100%" stopColor="rgb(8,14,20)" stopOpacity="0.96" />
-          </linearGradient>
-        )}
       </defs>
       {(trouble || active) && glow && (
         <ellipse
@@ -159,48 +163,14 @@ export function MapPin({
       )}
       <image
         href={src}
-        x={-half}
+        x={imgX}
         y={imgY}
-        width={s}
+        width={imgW}
         height={imgH}
         filter={useShadow ? `url(#${filterId})` : undefined}
         preserveAspectRatio="xMidYMid meet"
         style={{ pointerEvents: 'none' }}
       />
-      {showSystemPlate && (
-        <g style={{ pointerEvents: 'none' }}>
-          <rect
-            x={-coverW / 2}
-            y={coverY}
-            width={coverW}
-            height={coverH}
-            rx={coverH * 0.2}
-            fill={`url(#${maskGradId})`}
-          />
-          <g transform={`translate(0, ${coverY + coverH * 0.58})`}>
-            <rect
-              x={-plateW / 2}
-              y={-plateH / 2}
-              width={plateW}
-              height={plateH}
-              rx={plateH * 0.35}
-              fill="rgba(6, 14, 22, 0.98)"
-              stroke={glow ?? 'rgba(132, 241, 180, 0.4)'}
-              strokeWidth={1.35 * inv}
-            />
-            <text
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={plateH * 0.7}
-              fontWeight={800}
-              fill="#f4f7fa"
-              style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}
-            >
-              {systemKey}
-            </text>
-          </g>
-        </g>
-      )}
       {showBadge && (
         <g transform={`translate(${s * 0.34}, ${s * 0.32})`} style={{ pointerEvents: 'none' }}>
           <circle r={badgeR} fill="rgba(6, 22, 34, 0.92)" stroke={glow ?? 'var(--aqua)'} strokeWidth={1.6 * inv} />

@@ -360,6 +360,31 @@
   min-height: 96px;
   overflow: visible;
 }
+.rc-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px 0 4px;
+}
+.rc-levels__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rc-muted);
+}
+.rc-levels .liquid-meter__row {
+  color: var(--rc-muted);
+}
+.rc-levels .liquid-meter__row b {
+  color: var(--rc-ink);
+}
+.rc-levels .liquid-meter__track {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
 .rc-triage__impact--row {
   display: grid;
   grid-template-columns: 1fr 1fr;

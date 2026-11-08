@@ -35,16 +35,79 @@ export function StatusChip({ status }: { status: 'ongoing' | 'resolved' }) {
   );
 }
 
+export type MeterColor = 'aqua' | 'amber' | 'coral' | 'mint' | 'violet';
+/** water = produced water / tank · oil = crude tone · brine = disposal · gas = light mint */
+export type FluidKind = 'water' | 'oil' | 'brine' | 'gas';
+
 /** Horizontal meter with optional limit marks and ruler ticks (Enchantress style). */
 export function Meter({
   value, max = 100, warn, shut, ruler = true, height = 14, color,
-}: { value: number; max?: number; warn?: number; shut?: number; ruler?: boolean; height?: number; color?: 'aqua' | 'amber' | 'coral' }) {
+}: { value: number; max?: number; warn?: number; shut?: number; ruler?: boolean; height?: number; color?: MeterColor }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   const tone = color ?? (shut != null && value >= shut ? 'coral' : warn != null && value >= warn ? 'amber' : 'aqua');
   return (
     <div>
       <div className="meter" style={{ height }}>
         <motion.div className={`fill ${tone}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }} />
+        {warn != null && <span className="mark warn" style={{ left: `${(warn / max) * 100}%` }} />}
+        {shut != null && <span className="mark shut" style={{ left: `${(shut / max) * 100}%` }} />}
+      </div>
+      {ruler && (
+        <div className="ruler">
+          {[0, 25, 50, 75, 100].map((p) => (
+            <span key={p} style={{ left: `${p}%` }}>{Math.round((p / 100) * max)}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Enchantress meter + animated liquid fill (water / oil / brine / gas waves).
+ */
+export function LiquidMeter({
+  label,
+  display,
+  value,
+  max = 100,
+  warn,
+  shut,
+  fluid = 'water',
+  height = 16,
+  ruler = false,
+}: {
+  label?: string;
+  display?: string;
+  value: number;
+  max?: number;
+  warn?: number;
+  shut?: number;
+  fluid?: FluidKind;
+  height?: number;
+  ruler?: boolean;
+}) {
+  const pct = Math.max(0, Math.min(100, max > 0 ? (value / max) * 100 : 0));
+  const hot = shut != null && value >= shut ? 'is-hot' : warn != null && value >= warn ? 'is-warn' : '';
+  return (
+    <div className="liquid-meter">
+      {(label || display) && (
+        <div className="liquid-meter__row">
+          {label && <span>{label}</span>}
+          {display && <b>{display}</b>}
+        </div>
+      )}
+      <div className={`liquid-meter__track ${hot}`} style={{ height }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+        <motion.div
+          className={`liquid-meter__fill fluid-${fluid}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.85, ease: [0.2, 0.8, 0.2, 1] }}
+        >
+          <i className="liquid-meter__wave a" aria-hidden />
+          <i className="liquid-meter__wave b" aria-hidden />
+          <i className="liquid-meter__sheen" aria-hidden />
+        </motion.div>
         {warn != null && <span className="mark warn" style={{ left: `${(warn / max) * 100}%` }} />}
         {shut != null && <span className="mark shut" style={{ left: `${(shut / max) * 100}%` }} />}
       </div>

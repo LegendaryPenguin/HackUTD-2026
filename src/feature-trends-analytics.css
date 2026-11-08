@@ -452,7 +452,7 @@
 .crew-page {
   max-width: none;
   padding: 0 !important;
-  height: calc(100vh - var(--top-h) - var(--dock-h) - 8px);
+  height: calc(100vh - var(--dock-h) - 8px);
   overflow: auto;
 }
 .crew-stage {
