@@ -1,40 +1,72 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, Check, Clock, Gauge, MapPin, Play, RotateCcw,
-  Sparkles, Star, Timer, Trophy, Truck,
+  ArrowLeft, Check, Clock, Gauge, Map as MapIcon, MapPin, Play, RotateCcw, Star, Timer, Trophy, Truck,
 } from 'lucide-react';
 import { useStore } from '../state/store';
-import { buildDrivePoints, routeCheckpoints } from '../lib/driveMap';
+import { buildFieldMap } from '../lib/driveMap';
 import {
-  COACH_STORAGE_KEY, gradeRun, missionFromFailure, practiceMissions,
+  gradeRun, practiceMissions, truckRecommendedMissions,
   type DriveMission, type GradeResult, type RunStats,
 } from '../lib/driveMission';
 import { fmt } from '../lib/model';
 import { DriveScene, type DriveTelemetry } from '../components/drive/DriveScene';
-import { buildCoachSteps, DriveCoachPanel, type CoachAllow, type CoachStep } from '../components/drive/DriveCoach';
 
-type Flow = 'select' | 'brief' | 'coach' | 'run' | 'finish';
+type Flow = 'select' | 'story' | 'run' | 'finish';
+
+function storyFor(m: DriveMission) {
+  const pads = m.stops.map((s) => s.label).join(' → ');
+  if (m.kind === 'practice') {
+    return {
+      eyebrow: 'Story time',
+      title: 'Night drill on the lease',
+      paras: [
+        'Console is quiet. No real trip call — just you, a loaded water truck, and the ring road under moonlight.',
+        `Run the pad tour (${pads}) like it’s live. Stay on asphalt. Treat every tank like it’s climbing.`,
+      ],
+    };
+  }
+  const when = fmt.dayTime(m.atUnix);
+  const level = m.levelPct != null ? ` Tank sitting ~${fmt.pct(m.levelPct)}.` : '';
+  return {
+    eyebrow: 'Story time',
+    title: `Dispatch · ${m.tankLabel}`,
+    paras: [
+      `${when}. Avon Night Tide. The recommended plan rolls water trucks — not wait-and-hope.${level}`,
+      `${m.planLabel}. You’re on the yard. Hit every delivery pad in order: ${pads}. Miss the clock and the tank trips.`,
+    ],
+  };
+}
 
 const emptyTelem: DriveTelemetry = {
   speed: 0, dist: 0, heading: 0, bearing: 0, aligned: false, x: 0, z: 0, steered: false,
-  onRoad: true, checkpointHits: [],
+  onRoad: true, padHits: [],
 };
-
-function readCoachSeen() {
-  try { return localStorage.getItem(COACH_STORAGE_KEY) === '1'; } catch { return false; }
-}
-function writeCoachSeen() {
-  try { localStorage.setItem(COACH_STORAGE_KEY, '1'); } catch { /* ignore */ }
-}
 
 export default function Drive() {
   const { dataset, analysis } = useStore();
-  const limits = dataset?.network.defaults.tank_limits_pct ?? { warning: 85, shutdown: 92 };
 
-  const failureMissions = useMemo(() => {
-    if (!analysis) return [] as DriveMission[];
-    return analysis.orderedFailures.map((c) => missionFromFailure(c, limits));
-  }, [analysis, limits]);
+  const fieldMap = useMemo(() => {
+    if (!dataset) return null;
+    const prefer = analysis?.orderedFailures[0]?.facility.system
+      ?? dataset.network.systems[0]?.id;
+    return buildFieldMap(dataset, prefer);
+  }, [dataset, analysis]);
+
+  const truckMissions = useMemo(() => {
+    if (!dataset || !analysis || !fieldMap) return [] as DriveMission[];
+    const yard = fieldMap.points.find((p) => p.kind === 'yard');
+    return truckRecommendedMissions(dataset, analysis, fieldMap.points, yard);
+  }, [dataset, analysis, fieldMap]);
+
+  const practice = useMemo(() => {
+    if (!dataset || !fieldMap || truckMissions.length > 0) return [] as DriveMission[];
+    const sys = dataset.network.systems[0]?.id ?? 'S1';
+    const yard = fieldMap.points.find((p) => p.kind === 'yard');
+    return practiceMissions(fieldMap.points, sys, yard);
+  }, [dataset, fieldMap, truckMissions.length]);
+
+  const missions = truckMissions.length > 0 ? truckMissions : practice;
 
   const [flow, setFlow] = useState<Flow>('select');
   const [mission, setMission] = useState<DriveMission | null>(null);
@@ -42,55 +74,15 @@ export default function Drive() {
   const [best, setBest] = useState<Record<string, { sec: number; stars: number }>>({});
   const [resetKey, setResetKey] = useState(0);
   const [telem, setTelem] = useState<DriveTelemetry>(emptyTelem);
-  const [coachIdx, setCoachIdx] = useState(0);
-  const [celebrating, setCelebrating] = useState(false);
+  const [padFlash, setPadFlash] = useState<string | null>(null);
   const [grade, setGrade] = useState<GradeResult | null>(null);
-  const [gateFlash, setGateFlash] = useState<string | null>(null);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef(0);
   const flowRef = useRef<Flow>('select');
-  const celebrateLock = useRef(false);
   const roadSamples = useRef({ on: 0, total: 0 });
   const peakSpeed = useRef(0);
-  const hitsRef = useRef<string[]>([]);
   const prevHits = useRef(0);
   flowRef.current = flow;
-
-  const map = useMemo(() => {
-    if (!dataset || !mission) return null;
-    return buildDrivePoints(dataset, mission.systemId);
-  }, [dataset, mission]);
-
-  const checkpoints = useMemo(() => {
-    if (!map) return [];
-    const yard = map.points.find((p) => p.kind === 'yard');
-    if (!yard || !mission) return [];
-    const n = mission.difficulty.tier === 'critical' ? 3
-      : mission.difficulty.tier === 'urgent' ? 3
-        : 2;
-    return routeCheckpoints(map.roads, yard.id, mission.facilityId, n);
-  }, [map, mission]);
-
-  const practice = useMemo(() => {
-    if (!dataset) return [] as DriveMission[];
-    const first = dataset.network.systems[0];
-    if (!first) return [];
-    const pts = buildDrivePoints(dataset, first.id).points;
-    return practiceMissions(pts, first.id);
-  }, [dataset]);
-
-  const missions = failureMissions.length > 0 ? failureMissions : practice;
-  const steps = useMemo(() => (mission ? buildCoachSteps(mission) : [] as CoachStep[]), [mission]);
-  const step = steps[coachIdx] ?? null;
-
-  const allow: CoachAllow | 'all' =
-    flow === 'run' || flow === 'finish' ? 'all'
-      : flow === 'coach' && step ? step.allow
-        : {};
-
-  const playing =
-    (flow === 'run' || flow === 'finish') ||
-    (flow === 'coach' && !!step && !step.freeze && !celebrating);
 
   useEffect(() => {
     if (flow !== 'run') {
@@ -105,89 +97,50 @@ export default function Drive() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [flow]);
 
-  useEffect(() => {
-    celebrateLock.current = false;
-    setCelebrating(false);
-  }, [coachIdx]);
-
-  const advanceCoach = () => {
-    if (!step) return;
-    if (step.id === 'go' || coachIdx >= steps.length - 1) {
-      writeCoachSeen();
-      beginRun();
-      return;
-    }
-    setCoachIdx((i) => i + 1);
+  const pickMission = (m: DriveMission) => {
+    setMission(m);
+    setFlow('story');
+    setElapsed(0);
+    setGrade(null);
+    setPadFlash(null);
+    setTelem(emptyTelem);
+    startRef.current = null;
+    setResetKey((k) => k + 1);
   };
 
-  const succeedStep = () => {
-    if (celebrateLock.current || celebrating) return;
-    celebrateLock.current = true;
-    setCelebrating(true);
-    window.setTimeout(() => {
-      setCelebrating(false);
-      celebrateLock.current = false;
-      advanceCoach();
-    }, 900);
+  const beginRun = (m: DriveMission = mission!) => {
+    if (!m) return;
+    setMission(m);
+    setFlow('run');
+    setElapsed(0);
+    setGrade(null);
+    setPadFlash(null);
+    setTelem(emptyTelem);
+    roadSamples.current = { on: 0, total: 0 };
+    peakSpeed.current = 0;
+    prevHits.current = 0;
+    startRef.current = performance.now();
+    setResetKey((k) => k + 1);
   };
 
   const onTelemetry = (t: DriveTelemetry) => {
     setTelem(t);
-    hitsRef.current = t.checkpointHits;
-    if (t.checkpointHits.length > prevHits.current) {
-      const n = t.checkpointHits.length;
-      prevHits.current = n;
-      setGateFlash(`Gate ${n} cleared`);
-      window.setTimeout(() => setGateFlash(null), 1100);
+    if (t.padHits.length > prevHits.current) {
+      prevHits.current = t.padHits.length;
+      const last = t.padHits[t.padHits.length - 1];
+      const stop = mission?.stops.find((s) => s.id === last);
+      setPadFlash(stop ? `Delivered · ${stop.label}` : 'Pad delivered');
+      window.setTimeout(() => setPadFlash(null), 1200);
     }
     peakSpeed.current = Math.max(peakSpeed.current, t.speed);
     if (flowRef.current === 'run') {
       roadSamples.current.total += 1;
       if (t.onRoad) roadSamples.current.on += 1;
     }
-    if (flowRef.current !== 'coach' || !step || step.mode !== 'practice' || celebrating) return;
-    if (step.check?.(t)) succeedStep();
   };
 
-  const beginRun = () => {
-    setFlow('run');
-    setElapsed(0);
-    setGrade(null);
-    setGateFlash(null);
-    roadSamples.current = { on: 0, total: 0 };
-    peakSpeed.current = 0;
-    hitsRef.current = [];
-    prevHits.current = 0;
-    startRef.current = performance.now();
-    setResetKey((k) => k + 1);
-  };
-
-  const pickMission = (m: DriveMission) => {
-    setMission(m);
-    setFlow('brief');
-    setElapsed(0);
-    setGrade(null);
-    startRef.current = null;
-    setTelem(emptyTelem);
-    setCoachIdx(0);
-    setCelebrating(false);
-    setResetKey((k) => k + 1);
-  };
-
-  const startFromBrief = (withCoach: boolean) => {
-    if (!mission) return;
-    if (withCoach) {
-      setCoachIdx(0);
-      setFlow('coach');
-      setResetKey((k) => k + 1);
-      return;
-    }
-    writeCoachSeen();
-    beginRun();
-  };
-
-  const onArrive = (aligned: boolean) => {
-    if (flowRef.current !== 'run') return;
+  const onArrive = () => {
+    if (flowRef.current !== 'run' || !mission) return;
     const sec = startRef.current != null ? (performance.now() - startRef.current) / 1000 : elapsed;
     setElapsed(sec);
     const onRoadPct = roadSamples.current.total
@@ -196,28 +149,29 @@ export default function Drive() {
     const stats: RunStats = {
       sec,
       onRoadPct,
-      checkpointsHit: hitsRef.current.length,
-      checkpointsTotal: checkpoints.length,
-      alignedArrival: aligned,
+      padsHit: telem.padHits.length || mission.stops.length,
+      padsTotal: mission.stops.length,
       peakSpeed: peakSpeed.current,
     };
-    if (mission) {
-      const g = gradeRun(stats, mission.difficulty.timeLimitSec);
-      setGrade(g);
-      setBest((b) => {
-        const prev = b[mission.id];
-        if (prev == null || g.stars > prev.stars || (g.stars === prev.stars && sec < prev.sec)) {
-          return { ...b, [mission.id]: { sec, stars: g.stars } };
-        }
-        return b;
-      });
-    }
+    if (stats.padsHit < stats.padsTotal) stats.padsHit = stats.padsTotal;
+    const g = gradeRun(stats, mission.difficulty.timeLimitSec);
+    setGrade(g);
+    setBest((b) => {
+      const prev = b[mission.id];
+      if (prev == null || g.stars > prev.stars || (g.stars === prev.stars && sec < prev.sec)) {
+        return { ...b, [mission.id]: { sec, stars: g.stars } };
+      }
+      return b;
+    });
     setFlow('finish');
   };
 
-  const restartRun = () => beginRun();
+  const restartRun = () => {
+    if (!mission) return;
+    beginRun(mission);
+  };
 
-  const backToSelect = () => {
+  const backToHauls = () => {
     setFlow('select');
     setMission(null);
     setElapsed(0);
@@ -231,21 +185,25 @@ export default function Drive() {
         <div>
           <h2 className="page-title">Drive</h2>
           <p>Load a dataset to train truck runs to the tanks.</p>
+          <div className="drive-empty-actions">
+            <Link to="/" className="btn primary">
+              <MapIcon size={14} /> Back to Map
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  const targetPoint = map?.points.find((p) => p.id === mission?.facilityId) ?? null;
   const over = mission ? elapsed > mission.difficulty.timeLimitSec : false;
-  const cpHit = telem.checkpointHits.length;
-  const cpTotal = checkpoints.length;
-  const nextGate = checkpoints.find((c) => !telem.checkpointHits.includes(c.id)) ?? null;
-  const aim = nextGate && flow === 'run'
-    ? nextGate
-    : targetPoint;
-  const aimBearing = aim
-    ? Math.atan2(aim.x - telem.x, aim.z - telem.z)
+  const padsHit = telem.padHits.length;
+  const padsTotal = mission?.stops.length ?? 0;
+  const nextStop = mission?.stops.find((s) => !telem.padHits.includes(s.id)) ?? null;
+  const nextPt = nextStop && fieldMap
+    ? fieldMap.points.find((p) => p.id === nextStop.facilityId)
+    : null;
+  const aimBearing = nextPt
+    ? Math.atan2(nextPt.x - telem.x, nextPt.z - telem.z)
     : telem.bearing;
   const needle = ((aimBearing - telem.heading) * 180) / Math.PI;
   const onRoadPctLive = roadSamples.current.total
@@ -253,55 +211,100 @@ export default function Drive() {
     : 100;
 
   return (
-    <div className="drive-page">
-      {map && mission && targetPoint && flow !== 'select' && (
+    <div className={`drive-page flow-${flow}`}>
+      {fieldMap && mission && (flow === 'story' || flow === 'run' || flow === 'finish') && (
         <DriveScene
-          points={map.points}
-          roads={map.roads}
-          targetId={mission.facilityId}
-          playing={playing && flow !== 'finish'}
+          points={fieldMap.points}
+          roads={fieldMap.roads}
+          ribbons={fieldMap.ribbons}
+          stops={mission.stops}
+          playing={flow === 'run'}
           difficulty={mission.difficulty}
-          allow={allow}
           onArrive={onArrive}
           onTelemetry={onTelemetry}
           resetKey={resetKey}
-          checkpoints={flow === 'run' || flow === 'finish' ? checkpoints : []}
-          navAim={flow === 'run' ? (nextGate ? { x: nextGate.x, z: nextGate.z } : null) : null}
         />
       )}
+
+      {flow === 'story' && mission && (() => {
+        const story = storyFor(mission);
+        return (
+          <div className="drive-story">
+            <div className="drive-story-card">
+              <div className="drive-chrome-nav">
+                <button type="button" className="btn ghost sm" onClick={backToHauls}>
+                  <ArrowLeft size={14} /> All hauls
+                </button>
+                <Link to="/" className="btn ghost sm">
+                  <MapIcon size={14} /> Map
+                </Link>
+              </div>
+              <p className="drive-eyebrow">{story.eyebrow}</p>
+              <h1>{story.title}</h1>
+              {story.paras.map((p) => (
+                <p key={p.slice(0, 24)} className="drive-story-p">{p}</p>
+              ))}
+              <ul className="drive-story-beats">
+                <li><span className="chip aqua">{mission.stops.length} pads</span></li>
+                <li><span className="chip ghost">{mission.difficulty.timeLimitSec}s clock</span></li>
+                <li><span className={`chip ${mission.difficulty.tone}`}>{mission.difficulty.label}</span></li>
+              </ul>
+              <div className="drive-story-actions">
+                <button type="button" className="btn primary" onClick={() => beginRun(mission)}>
+                  <Play size={14} /> Start haul
+                </button>
+                <button type="button" className="btn ghost" onClick={backToHauls}>
+                  Pick another
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {flow === 'select' && (
         <div className="drive-select">
           <div className="drive-select-inner">
-            <p className="drive-eyebrow">Night Tide · truck school</p>
-            <h1>Pick a haul that needs a truck.</h1>
-            <p className="drive-lead">
-              {failureMissions.length > 0
-                ? 'Follow the lit roads, clear amber checkpoints, hit the beacon. Score is time + route discipline.'
-                : 'No active pump failures — practice pads still grade your clock and road discipline.'}
-            </p>
+            <header className="drive-chrome">
+              <div className="drive-chrome-nav">
+                <Link to="/" className="btn ghost sm">
+                  <MapIcon size={14} /> Back to Map
+                </Link>
+                <Link to="/plan" className="btn ghost sm">
+                  Plan
+                </Link>
+              </div>
+              <p className="drive-eyebrow">Night Tide · water truck</p>
+              <h1>When trucks were the call.</h1>
+              <p className="drive-lead">
+                {truckMissions.length > 0
+                  ? 'Each card is a moment the recommended plan sent water trucks. Pick one and haul the tank pads.'
+                  : 'No truck-recommended failures in this window — run a practice pad loop across the field.'}
+              </p>
+            </header>
 
-            <div className="drive-mission-grid">
+            <div className="drive-mission-grid drive-time-cards">
               {missions.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  className={`drive-mission-card tier-${m.difficulty.tier}`}
+                  className={`drive-mission-card drive-time-card tier-${m.difficulty.tier}`}
                   onClick={() => pickMission(m)}
                 >
                   <div className="drive-mission-card-top">
+                    <span className="drive-time-stamp">
+                      <Clock size={12} />
+                      {m.kind === 'practice' ? 'Practice' : fmt.dayTime(m.atUnix)}
+                    </span>
                     <span className={`chip ${m.difficulty.tone}`}>{m.difficulty.label}</span>
-                    <span className="chip ghost">{m.systemId}</span>
                   </div>
                   <h3>{m.title}</h3>
                   <p>{m.subtitle}</p>
                   <ul>
-                    {m.levelPct != null && <li>Tank {fmt.pct(m.levelPct)}</li>}
-                    {m.hoursToLimit != null && isFinite(m.hoursToLimit) && (
-                      <li>Trip in ~{fmt.dur(m.hoursToLimit)}</li>
-                    )}
+                    <li>{m.stops.length} tank pads</li>
+                    <li>{m.trucks}×{m.trips} trucks</li>
                     <li>Clock {m.difficulty.timeLimitSec}s</li>
-                    {m.responseMin != null && <li>Field ETA {m.responseMin} min</li>}
+                    {m.levelPct != null && <li>Tank {fmt.pct(m.levelPct)}</li>}
                   </ul>
                   {best[m.id] && (
                     <div className="drive-card-stars" aria-label={`${best[m.id].stars} stars`}>
@@ -319,181 +322,132 @@ export default function Drive() {
                     </div>
                   )}
                   <span className="drive-mission-cta">
-                    <Truck size={14} /> Brief this run
+                    <Truck size={14} /> Drive now
                   </span>
                 </button>
               ))}
             </div>
+
+            <footer className="drive-select-foot">
+              <Link to="/" className="btn ghost">
+                <ArrowLeft size={14} /> Back to Map
+              </Link>
+            </footer>
           </div>
         </div>
       )}
 
-      {flow === 'brief' && mission && (
-        <div className="drive-select">
-          <div className="drive-select-inner narrow">
-            <button type="button" className="btn ghost sm" onClick={backToSelect}>
-              <ArrowLeft size={14} /> All hauls
-            </button>
-            <p className="drive-eyebrow">Pre-run briefing</p>
-            <h1>{mission.title}</h1>
-            <p className="drive-lead">
-              Objectives: follow the aqua roads, pass amber checkpoints, enter the tank ring facing the pad. Faster and cleaner earns more stars.
-            </p>
-
-            <div className="drive-brief-grid">
-              <div className="drive-brief-card">
-                <p className="drive-brief-label"><AlertTriangle size={14} /> Why this pad</p>
-                <ul>
-                  {mission.difficulty.why.map((w) => <li key={w}>{w}</li>)}
-                </ul>
-              </div>
-              <div className="drive-brief-card">
-                <p className="drive-brief-label"><Sparkles size={14} /> How you score</p>
-                <ul>
-                  <li>Deliver inside {mission.difficulty.timeLimitSec}s</li>
-                  <li>Stay on lit lease roads</li>
-                  <li>Clear every checkpoint gate</li>
-                  <li>Line up clean into the ring</li>
-                  {mission.difficulty.stakes.slice(0, 1).map((s) => <li key={s}>{s}</li>)}
-                </ul>
-              </div>
-            </div>
-
-            {mission.evidence.length > 0 && (
-              <div className="drive-brief-evidence">
-                {mission.evidence.map((e) => <span key={e} className="chip ghost">{e}</span>)}
-              </div>
-            )}
-
-            <div className="drive-brief-actions">
-              <button type="button" className="btn primary" onClick={() => startFromBrief(true)}>
-                <Play size={14} /> {readCoachSeen() ? 'Replay lesson' : 'Start with coach'}
-              </button>
-              <button type="button" className="btn ghost" onClick={() => startFromBrief(false)}>
-                Skip to timed run
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {(flow === 'coach' || flow === 'run' || flow === 'finish') && mission && (
+      {(flow === 'run' || flow === 'finish') && mission && (
         <>
           <div className="drive-hud top">
             <div className="drive-mission">
+              <div className="drive-mission-nav">
+                <button type="button" className="btn ghost sm" onClick={backToHauls}>
+                  <ArrowLeft size={14} /> All hauls
+                </button>
+                <Link to="/" className="btn ghost sm">
+                  <MapIcon size={14} /> Map
+                </Link>
+              </div>
               <span className={`chip ${mission.difficulty.tone}`}>{mission.difficulty.label}</span>
-              <h1>{flow === 'coach' ? 'Coach on deck' : `Haul to ${mission.tankLabel}`}</h1>
+              <h1>
+                {nextStop ? `Deliver · ${nextStop.label}` : 'Haul complete'}
+              </h1>
               <p>
-                {flow === 'coach'
-                  ? 'Stop-and-go lesson — succeed each tip to unlock the next.'
-                  : 'Follow lit roads · amber gates · aqua beacon'}
+                Pad {Math.min(padsHit + (nextStop ? 1 : 0), padsTotal)} of {padsTotal}
+                {mission.kind === 'truck_run' ? ` · ${fmt.dayTime(mission.atUnix)}` : ''}
               </p>
             </div>
-            {flow !== 'coach' && (
-              <div className="drive-stats">
-                <div className={`drive-stat ${over ? 'hot' : ''}`}>
-                  <Timer size={14} />
-                  <span>{elapsed.toFixed(1)}s / {mission.difficulty.timeLimitSec}s</span>
-                </div>
-                <div className="drive-stat">
-                  <Gauge size={14} />
-                  <span>{Math.round(telem.speed * 2.2)} mph</span>
-                </div>
-                <div className={`drive-stat ${telem.onRoad ? '' : 'hot'}`}>
-                  <MapPin size={14} />
-                  <span>{telem.onRoad ? 'On road' : 'Off road'}</span>
-                </div>
-                <div className="drive-stat">
-                  <Check size={14} />
-                  <span>{cpHit}/{cpTotal} gates</span>
-                </div>
-                {best[mission.id] != null && (
-                  <div className="drive-stat best">
-                    <Trophy size={14} />
-                    <span>{best[mission.id].sec.toFixed(1)}s · {best[mission.id].stars}★</span>
-                  </div>
-                )}
+            <div className="drive-stats">
+              <div className={`drive-stat ${over ? 'hot' : ''}`}>
+                <Timer size={14} />
+                <span>{elapsed.toFixed(1)}s / {mission.difficulty.timeLimitSec}s</span>
               </div>
-            )}
-          </div>
-
-          <div className="drive-compass" aria-hidden>
-            <div className="drive-compass-ring">
-              <i style={{ transform: `rotate(${needle}deg)` }} />
+              <div className="drive-stat">
+                <Gauge size={14} />
+                <span>{Math.round(telem.speed * 2.2)} mph</span>
+              </div>
+              <div className={`drive-stat ${telem.onRoad ? '' : 'hot'}`}>
+                <MapPin size={14} />
+                <span>{telem.onRoad ? 'On road' : 'Off road'}</span>
+              </div>
+              <div className="drive-stat">
+                <Check size={14} />
+                <span>{padsHit}/{padsTotal} pads</span>
+              </div>
+              {best[mission.id] != null && (
+                <div className="drive-stat best">
+                  <Trophy size={14} />
+                  <span>{best[mission.id].sec.toFixed(1)}s · {best[mission.id].stars}★</span>
+                </div>
+              )}
             </div>
-            <span>{nextGate && flow === 'run' ? 'Next gate' : 'Target'}</span>
           </div>
 
           {flow === 'run' && (
-            <div className="drive-obj-live" aria-live="polite">
-              <h3>Objectives</h3>
-              <ol>
-                {cpTotal > 0 && (
-                  <li className={cpHit >= cpTotal ? 'done' : 'now'}>
-                    <i>{cpHit >= cpTotal ? '✓' : cpHit}</i>
-                    Clear gates {cpHit}/{cpTotal}
+            <>
+              <div className="drive-compass" aria-hidden>
+                <div className="drive-compass-ring">
+                  <i style={{ transform: `rotate(${needle}deg)` }} />
+                </div>
+                <span>{nextStop ? 'Next pad' : 'Done'}</span>
+              </div>
+
+              <div className="drive-obj-live" aria-live="polite">
+                <h3>Delivery tour</h3>
+                <ol>
+                  {mission.stops.map((s, i) => {
+                    const hit = telem.padHits.includes(s.id);
+                    const now = s.id === nextStop?.id;
+                    return (
+                      <li key={s.id} className={hit ? 'done' : now ? 'now' : ''}>
+                        <i>{hit ? '✓' : i + 1}</i>
+                        {s.label}
+                      </li>
+                    );
+                  })}
+                  <li className={telem.onRoad ? (onRoadPctLive >= 72 ? 'done' : '') : 'now'}>
+                    <i>{onRoadPctLive >= 72 ? '✓' : '·'}</i>
+                    Stay on roads · {onRoadPctLive}%
                   </li>
-                )}
-                <li className={telem.onRoad ? (onRoadPctLive >= 72 ? 'done' : '') : 'now'}>
-                  <i>{onRoadPctLive >= 72 ? '✓' : '·'}</i>
-                  Stay on roads · {onRoadPctLive}%
-                </li>
-                <li className={cpTotal === 0 || !nextGate ? 'now' : ''}>
-                  <i>·</i>
-                  Line up into the beacon ring
-                </li>
-                <li className={over ? 'now' : ''}>
-                  <i>{over ? '!' : '·'}</i>
-                  Beat {mission.difficulty.timeLimitSec}s clock
-                </li>
-              </ol>
-            </div>
-          )}
-
-          {gateFlash && <div className="drive-gate-flash">{gateFlash}</div>}
-
-          {flow === 'run' && map && (
-            <DriveMinimap
-              points={map.points}
-              roads={map.roads}
-              x={telem.x}
-              z={telem.z}
-              yaw={telem.heading}
-              targetId={mission.facilityId}
-              checkpoints={checkpoints}
-              hits={telem.checkpointHits}
-              nextId={nextGate?.id ?? null}
-            />
-          )}
-
-          {flow === 'run' && (
-            <div className="drive-hud bottom">
-              <div className="drive-keys">
-                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-                <span>{nextGate ? 'amber arrow → next gate' : 'aqua arrow → beacon ring'}</span>
+                </ol>
               </div>
-              <div className="drive-actions">
-                <button type="button" className="btn ghost sm" onClick={restartRun}>
-                  <RotateCcw size={14} /> Restart
-                </button>
-                <button type="button" className="btn ghost sm" onClick={backToSelect}>
-                  Change haul
-                </button>
+
+              {padFlash && <div className="drive-gate-flash">{padFlash}</div>}
+
+              {fieldMap && (
+                <DriveMinimap
+                  points={fieldMap.points}
+                  roads={fieldMap.roads}
+                  x={telem.x}
+                  z={telem.z}
+                  yaw={telem.heading}
+                  stops={mission.stops}
+                  hits={telem.padHits}
+                  nextId={nextStop?.id ?? null}
+                />
+              )}
+
+              <div className="drive-hud bottom">
+                <div className="drive-keys">
+                  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                  <span>aqua arrow → next tank pad</span>
+                </div>
+                <div className="drive-actions">
+                  <button type="button" className="btn ghost sm" onClick={restartRun}>
+                    <RotateCcw size={14} /> Restart
+                  </button>
+                  <button type="button" className="btn ghost sm" onClick={backToHauls}>
+                    <ArrowLeft size={14} /> All hauls
+                  </button>
+                  <Link to="/" className="btn primary sm">
+                    <MapIcon size={14} /> Back to Map
+                  </Link>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </>
-      )}
-
-      {flow === 'coach' && step && (
-        <DriveCoachPanel
-          step={step}
-          stepIndex={coachIdx}
-          total={steps.length}
-          celebrating={celebrating}
-          onContinue={advanceCoach}
-          onSkipAll={() => { writeCoachSeen(); beginRun(); }}
-        />
       )}
 
       {flow === 'finish' && mission && grade && (
@@ -510,30 +464,22 @@ export default function Drive() {
                 />
               ))}
             </div>
-            <h2>Arrived · {mission.tankLabel}</h2>
+            <h2>{mission.stops.length} pads delivered</h2>
             <p className="drive-finish-time">{elapsed.toFixed(2)}s</p>
             <p className="muted">
               Score {grade.score}
               <Clock size={12} style={{ verticalAlign: -2, marginLeft: 8 }} /> Window {mission.difficulty.timeLimitSec}s
             </p>
-            <ul className="drive-obj-list">
-              {grade.objectives.map((o) => (
-                <li key={o.id} className={o.done ? 'ok' : 'miss'}>
-                  <span>{o.done ? '✓' : '·'}</span>
-                  <div>
-                    <strong>{o.label}</strong>
-                    <small>{o.hint}</small>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="drive-actions">
-              <button type="button" className="btn ghost" onClick={restartRun}>
-                <RotateCcw size={14} /> Run again
+            <div className="drive-finish-actions">
+              <button type="button" className="btn primary" onClick={restartRun}>
+                <RotateCcw size={14} /> Drive again
               </button>
-              <button type="button" className="btn primary" onClick={backToSelect}>
-                Pick another haul
+              <button type="button" className="btn ghost" onClick={backToHauls}>
+                <Truck size={14} /> All hauls
               </button>
+              <Link to="/" className="btn ghost">
+                <MapIcon size={14} /> Back to Map
+              </Link>
             </div>
           </div>
         </div>
@@ -548,8 +494,7 @@ function DriveMinimap({
   x,
   z,
   yaw,
-  targetId,
-  checkpoints,
+  stops,
   hits,
   nextId,
 }: {
@@ -558,17 +503,13 @@ function DriveMinimap({
   x: number;
   z: number;
   yaw: number;
-  targetId: string;
-  checkpoints: { id: string; x: number; z: number }[];
+  stops: { id: string; facilityId: string }[];
   hits: string[];
   nextId: string | null;
 }) {
   const pad = 12;
   const size = 148;
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const p of points) {
     minX = Math.min(minX, p.x);
     maxX = Math.max(maxX, p.x);
@@ -584,42 +525,41 @@ function DriveMinimap({
     return [u, v] as const;
   };
 
+  const roadSample = roads.filter((_, i) => i % 3 === 0 && _.kind !== 'lease');
+
   return (
     <div className="drive-minimap" aria-hidden>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <rect width={size} height={size} rx="14" fill="rgba(6,14,20,0.82)" stroke="rgba(140,190,210,0.2)" />
-        {roads.filter((r) => r.kind !== 'lease').map((r) => {
+        {roadSample.map((r) => {
           const [a, b] = [to(r.from[0], r.from[1]), to(r.to[0], r.to[1])];
           return (
             <line
               key={r.id}
               x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
               stroke="rgba(94,200,216,0.35)"
-              strokeWidth={r.kind === 'arterial' ? 2.2 : 1.4}
+              strokeWidth={r.kind === 'arterial' ? 2 : 1.2}
               strokeLinecap="round"
             />
           );
         })}
-        {checkpoints.map((c) => {
-          const [u, v] = to(c.x, c.z);
-          const hit = hits.includes(c.id);
-          const next = c.id === nextId;
+        {stops.map((s) => {
+          const p = points.find((pt) => pt.id === s.facilityId);
+          if (!p) return null;
+          const [u, v] = to(p.x, p.z);
+          const hit = hits.includes(s.id);
+          const next = s.id === nextId;
           return (
             <circle
-              key={c.id}
+              key={s.id}
               cx={u}
               cy={v}
               r={next ? 5 : 3.5}
-              fill={hit ? '#7dcea0' : next ? '#ffd27a' : '#e8c07a'}
-              stroke={next ? '#fff4d6' : 'none'}
+              fill={hit ? '#7dcea0' : next ? '#5ec8d8' : '#4a606c'}
+              stroke={next ? '#dff6ff' : 'none'}
               strokeWidth={next ? 1.2 : 0}
             />
           );
-        })}
-        {points.map((p) => {
-          const [u, v] = to(p.x, p.z);
-          const fill = p.id === targetId ? '#5ec8d8' : p.kind === 'yard' ? '#7eb8ff' : '#4a606c';
-          return <circle key={p.id} cx={u} cy={v} r={p.id === targetId ? 4.5 : 2.8} fill={fill} />;
         })}
         {(() => {
           const [u, v] = to(x, z);
@@ -631,7 +571,7 @@ function DriveMinimap({
           );
         })()}
       </svg>
-      <span>Lease map</span>
+      <span>Field map</span>
     </div>
   );
 }

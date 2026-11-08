@@ -1,5 +1,7 @@
-import type { FailureContext } from './types';
-import { CATEGORY_LABEL, fmt } from './model';
+import type { FailureContext, PlanOption, Dataset } from './types';
+import type { Analysis } from './summary';
+import { fmt } from './model';
+import { familyOf } from './scenarios';
 import type { DrivePoint } from './driveMap';
 
 export type DiffTier = 'standard' | 'urgent' | 'critical';
@@ -8,7 +10,6 @@ export type DriveDifficulty = {
   tier: DiffTier;
   label: string;
   tone: 'aqua' | 'amber' | 'coral';
-  /** soft clock for the graded run */
   timeLimitSec: number;
   maxSpeed: number;
   accel: number;
@@ -16,29 +17,39 @@ export type DriveDifficulty = {
   arriveR: number;
   fogNear: number;
   fogFar: number;
-  stakes: string[];
-  why: string[];
+};
+
+/** One tank pad the water truck must deliver to. */
+export type DeliveryStop = {
+  id: string;
+  facilityId: string;
+  label: string;
+  systemId: string;
 };
 
 export type DriveMission = {
   id: string;
-  kind: 'failure' | 'practice';
+  kind: 'truck_run' | 'practice';
+  atUnix: number;
   title: string;
   subtitle: string;
   facilityId: string;
   systemId: string;
   tankLabel: string;
+  stops: DeliveryStop[];
+  trucks: number;
+  trips: number;
+  planLabel: string;
   difficulty: DriveDifficulty;
   levelPct?: number;
   hoursToLimit?: number;
   responseMin?: number;
-  evidence: string[];
 };
 
 const TIER_COPY: Record<DiffTier, Pick<DriveDifficulty, 'tier' | 'label' | 'tone'>> = {
-  standard: { tier: 'standard', label: 'Standard run', tone: 'aqua' },
-  urgent: { tier: 'urgent', label: 'Urgent run', tone: 'amber' },
-  critical: { tier: 'critical', label: 'Critical run', tone: 'coral' },
+  standard: { tier: 'standard', label: 'Haul', tone: 'aqua' },
+  urgent: { tier: 'urgent', label: 'Urgent haul', tone: 'amber' },
+  critical: { tier: 'critical', label: 'Critical haul', tone: 'coral' },
 };
 
 function tierFrom(hoursToLimit: number, levelPct: number, warn: number, shut: number): DiffTier {
@@ -52,129 +63,187 @@ function tierFrom(hoursToLimit: number, levelPct: number, warn: number, shut: nu
   return 'standard';
 }
 
-function physicsFor(tier: DiffTier, responseMin: number): Omit<DriveDifficulty, 'tier' | 'label' | 'tone' | 'stakes' | 'why'> {
+function physicsFor(tier: DiffTier, stops: number, responseMin: number): Omit<DriveDifficulty, 'tier' | 'label' | 'tone'> {
+  const base = tier === 'critical' ? 110 : tier === 'urgent' ? 140 : 170;
+  const perStop = 42;
   const far = Math.max(0, Math.min(1, (responseMin - 20) / 80));
-  if (tier === 'critical') {
-    return {
-      timeLimitSec: Math.round(38 + far * 10),
-      maxSpeed: 24,
-      accel: 16,
-      steer: 2.35,
-      arriveR: 5.5,
-      fogNear: 28,
-      fogFar: 150,
-    };
-  }
-  if (tier === 'urgent') {
-    return {
-      timeLimitSec: Math.round(55 + far * 12),
-      maxSpeed: 26,
-      accel: 17,
-      steer: 2.2,
-      arriveR: 6.2,
-      fogNear: 34,
-      fogFar: 180,
-    };
-  }
   return {
-    timeLimitSec: Math.round(75 + far * 18),
-    maxSpeed: 29,
-    accel: 19,
-    steer: 2.05,
+    timeLimitSec: Math.round(base + stops * perStop + far * 30),
+    maxSpeed: tier === 'critical' ? 23 : tier === 'urgent' ? 25 : 27,
+    accel: tier === 'critical' ? 14 : 16,
+    steer: 2.1,
     arriveR: 7.2,
-    fogNear: 42,
-    fogFar: 220,
+    fogNear: 48,
+    fogFar: 280,
   };
 }
 
-export function missionFromFailure(
-  ctx: FailureContext,
-  limits: { warning: number; shutdown: number },
-): DriveMission {
-  const f = ctx.facility;
-  const tier = tierFrom(ctx.hoursToLimit, ctx.levelPct, limits.warning, limits.shutdown);
-  const meta = TIER_COPY[tier];
-  const phys = physicsFor(tier, f.response_min);
-  const stakes: string[] = [];
-  const why: string[] = [];
+function recPlan(analysis: Analysis, ctx: FailureContext): PlanOption | null {
+  const sp = analysis.systemPlans[ctx.facility.system];
+  if (!sp) return null;
+  return sp.plans[ctx.event.id] ?? null;
+}
 
-  why.push(`${CATEGORY_LABEL[ctx.event.category]} on ${fmt.short(f.id)} — tank is filling with nowhere to send water.`);
-  why.push(`Tank at ${fmt.pct(ctx.levelPct)} of ${fmt.num(f.tank.capacity_bbl)} bbl.`);
-  if (isFinite(ctx.hoursToLimit)) {
-    why.push(`About ${fmt.dur(ctx.hoursToLimit)} until shutdown if nobody hauls.`);
-  } else {
-    why.push('Fill rate is low right now, but the pad still needs a truck path drilled into muscle memory.');
+/** Nearest-neighbor tour from yard so pads are spread and the route isn't a straight line. */
+function tourStops(
+  primary: FailureContext,
+  truckFailures: FailureContext[],
+  allTankPoints: DrivePoint[],
+  yard: DrivePoint | undefined,
+  minStops: number,
+): DeliveryStop[] {
+  const tanks = allTankPoints.filter((p) => p.kind === 'tank');
+  const byId = new Map(tanks.map((t) => [t.id, t]));
+
+  const must: string[] = [];
+  const pushMust = (id: string) => {
+    if (!byId.has(id) || must.includes(id)) return;
+    must.push(id);
+  };
+  pushMust(primary.facility.id);
+  for (const c of truckFailures) {
+    if (c.event.id === primary.event.id) continue;
+    pushMust(c.facility.id);
   }
-  why.push(`Field response ETA for this pad: ${f.response_min} min.`);
 
-  stakes.push(`Beat the ${phys.timeLimitSec}s training clock (compressed night run).`);
-  if (tier === 'critical') stakes.push('Tight pad + heavier fog — miss the ring and the tank trips in the real plan.');
-  if (tier === 'urgent') stakes.push('Levels are climbing through warning — every second costs production.');
-  stakes.push(`Haul goal: keep wells online while repair runs (~${fmt.durMin(ctx.horizonMin)} left).`);
-  if (ctx.doNothingCost > 0) stakes.push(`Do-nothing loss on this case: ${fmt.money(ctx.doNothingCost)}.`);
+  // Fill with farthest tanks first so the loop covers the field
+  const origin = yard ?? byId.get(primary.facility.id);
+  const extras = tanks
+    .filter((t) => !must.includes(t.id))
+    .map((t) => ({
+      id: t.id,
+      d: origin ? Math.hypot(t.x - origin.x, t.z - origin.z) : 0,
+    }))
+    .sort((a, b) => b.d - a.d);
 
-  return {
-    id: ctx.event.id,
-    kind: 'failure',
-    title: `Haul to ${fmt.short(f.id)}`,
-    subtitle: `${f.system} · ${CATEGORY_LABEL[ctx.event.category]}`,
-    facilityId: f.id,
-    systemId: f.system,
-    tankLabel: fmt.short(f.id),
-    difficulty: { ...phys, ...meta, stakes, why },
-    levelPct: ctx.levelPct,
-    hoursToLimit: ctx.hoursToLimit,
-    responseMin: f.response_min,
-    evidence: ctx.event.evidence.slice(0, 3),
-  };
+  const want = Math.min(Math.max(minStops, 4), Math.max(must.length, tanks.length));
+  const pool = [...must];
+  for (const e of extras) {
+    if (pool.length >= want) break;
+    pool.push(e.id);
+  }
+
+  // Order: start at primary, then NN around the field
+  const remaining = new Set(pool);
+  const ordered: string[] = [];
+  let cur = byId.get(primary.facility.id) ?? (origin ? { x: origin.x, z: origin.z, id: '' } : null);
+  if (remaining.has(primary.facility.id)) {
+    ordered.push(primary.facility.id);
+    remaining.delete(primary.facility.id);
+  }
+  while (remaining.size) {
+    let bestId = '';
+    let bestD = Infinity;
+    for (const id of remaining) {
+      const t = byId.get(id)!;
+      const d = cur ? Math.hypot(t.x - cur.x, t.z - cur.z) : 0;
+      // Prefer mid-distance hops so we don't collapse to a micro-cluster
+      const score = Math.abs(d - 35) + d * 0.15;
+      if (score < bestD) {
+        bestD = score;
+        bestId = id;
+      }
+    }
+    if (!bestId) break;
+    ordered.push(bestId);
+    remaining.delete(bestId);
+    cur = byId.get(bestId)!;
+  }
+
+  return ordered.map((id) => {
+    const t = byId.get(id)!;
+    return {
+      id: `pad-${id}`,
+      facilityId: id,
+      label: t.label,
+      systemId: t.systemId,
+    };
+  });
 }
 
-export function practiceMissions(points: DrivePoint[], systemId: string): DriveMission[] {
-  return points
-    .filter((p) => p.kind === 'tank')
-    .map((p, i) => {
-      const responseMin = p.responseMin ?? 30;
-      const tier: DiffTier = i % 3 === 0 ? 'urgent' : 'standard';
-      const meta = TIER_COPY[tier];
-      const phys = physicsFor(tier, responseMin);
-      return {
-        id: `practice:${p.id}`,
-        kind: 'practice' as const,
-        title: `Drill · ${p.label}`,
-        subtitle: `${systemId} · practice pad`,
-        facilityId: p.id,
-        systemId,
-        tankLabel: p.label,
-        difficulty: {
-          ...phys,
-          ...meta,
-          stakes: [`Hit the pad inside ${phys.timeLimitSec}s.`, 'Practice runs still grade your clock discipline.'],
-          why: [
-            'No active pump failure on this pad right now.',
-            'Use it to learn the yard → tank route before the next night goes loud.',
-            `Catalog response for this facility: ${responseMin} min.`,
-          ],
-        },
-        responseMin,
-        evidence: ['Quiet pad — training only.'],
-      };
-    });
+/**
+ * Haul moments where the recommended plan actually sends water trucks.
+ * Cards are stamped with failure onset time.
+ */
+export function truckRecommendedMissions(
+  ds: Dataset,
+  analysis: Analysis,
+  allTankPoints: DrivePoint[],
+  yard?: DrivePoint,
+): DriveMission[] {
+  const limits = ds.network.defaults.tank_limits_pct;
+  const truckFailures = analysis.orderedFailures.filter((c) => {
+    const plan = recPlan(analysis, c);
+    return !!plan && plan.trucks > 0;
+  });
+
+  return truckFailures.map((ctx) => {
+    const plan = recPlan(analysis, ctx)!;
+    const f = ctx.facility;
+    const tier = tierFrom(ctx.hoursToLimit, ctx.levelPct, limits.warning, limits.shutdown);
+    const meta = TIER_COPY[tier];
+    const trips = Math.max(1, plan.trips);
+    const minStops = Math.min(7, Math.max(4, plan.trucks + trips + 1));
+    const stops = tourStops(ctx, truckFailures, allTankPoints, yard, minStops);
+    const phys = physicsFor(tier, stops.length, f.response_min);
+    const fam = familyOf(plan);
+
+    return {
+      id: ctx.event.id,
+      kind: 'truck_run' as const,
+      atUnix: ctx.event.onset,
+      title: fmt.short(f.id),
+      subtitle: plan.label || (fam === 'trucks_only' ? 'Trucks recommended' : 'Trucks in best plan'),
+      facilityId: f.id,
+      systemId: f.system,
+      tankLabel: fmt.short(f.id),
+      stops,
+      trucks: plan.trucks,
+      trips: plan.trips,
+      planLabel: plan.label,
+      difficulty: { ...phys, ...meta },
+      levelPct: ctx.levelPct,
+      hoursToLimit: ctx.hoursToLimit,
+      responseMin: f.response_min,
+    };
+  });
+}
+
+export function practiceMissions(allTankPoints: DrivePoint[], systemId: string, yard?: DrivePoint): DriveMission[] {
+  const tanks = allTankPoints.filter((p) => p.kind === 'tank');
+  if (!tanks.length) return [];
+
+  const fakePrimary = {
+    facility: { id: tanks[0].id, system: systemId, response_min: 40 },
+    event: { id: 'practice' },
+  } as unknown as FailureContext;
+
+  const stops = tourStops(fakePrimary, [], allTankPoints, yard, Math.min(5, tanks.length));
+  const phys = physicsFor('standard', stops.length, 40);
+  return [{
+    id: 'practice-field',
+    kind: 'practice',
+    atUnix: 0,
+    title: 'Practice field loop',
+    subtitle: 'No truck call right now — drill the pad tour',
+    facilityId: stops[0].facilityId,
+    systemId,
+    tankLabel: stops[0].label,
+    stops,
+    trucks: 1,
+    trips: stops.length,
+    planLabel: 'Practice loop',
+    difficulty: { ...phys, ...TIER_COPY.standard },
+    responseMin: 40,
+  }];
 }
 
 export type RunStats = {
   sec: number;
   onRoadPct: number;
-  checkpointsHit: number;
-  checkpointsTotal: number;
-  alignedArrival: boolean;
+  padsHit: number;
+  padsTotal: number;
   peakSpeed: number;
-};
-
-export type Objective = {
-  id: string;
-  label: string;
-  done: boolean;
-  hint: string;
 };
 
 export type GradeResult = {
@@ -182,101 +251,32 @@ export type GradeResult = {
   tone: 'mint' | 'aqua' | 'amber' | 'coral';
   stars: number;
   score: number;
-  objectives: Objective[];
 };
 
-/** Grade a finished haul: time, route discipline, checkpoints, approach. */
 export function gradeRun(stats: RunStats, limit: number): GradeResult {
   const onTime = stats.sec <= limit;
-  const fast = stats.sec <= limit * 0.72;
+  const fast = stats.sec <= limit * 0.78;
+  const pads = stats.padsTotal === 0 || stats.padsHit >= stats.padsTotal;
   const routeClean = stats.onRoadPct >= 0.72;
-  const checks = stats.checkpointsTotal === 0 || stats.checkpointsHit >= stats.checkpointsTotal;
-  const approach = stats.alignedArrival;
-
-  const objectives: Objective[] = [
-    {
-      id: 'deliver',
-      label: 'Deliver to the tank pad',
-      done: true,
-      hint: 'Drive into the aqua ring',
-    },
-    {
-      id: 'clock',
-      label: onTime ? (fast ? 'Beat the training clock' : 'Inside the time window') : 'Missed the training clock',
-      done: onTime,
-      hint: `Window ${limit}s · you ${stats.sec.toFixed(1)}s`,
-    },
-    {
-      id: 'route',
-      label: routeClean ? 'Stayed on the lit roads' : 'Wandered off the lease roads',
-      done: routeClean,
-      hint: `${Math.round(stats.onRoadPct * 100)}% of the run on pavement`,
-    },
-    {
-      id: 'checks',
-      label: checks ? 'Hit every route checkpoint' : 'Skipped a checkpoint',
-      done: checks,
-      hint: `${stats.checkpointsHit} / ${stats.checkpointsTotal} gates`,
-    },
-    {
-      id: 'approach',
-      label: approach ? 'Clean lined-up approach' : 'Came in crooked',
-      done: approach,
-      hint: 'Face the tank when you enter the ring',
-    },
-  ];
 
   let stars = 1;
+  if (pads) stars++;
   if (onTime) stars++;
   if (routeClean) stars++;
-  if (checks && approach) stars++;
-  if (fast && routeClean && checks) stars = 5;
+  if (fast && pads && routeClean) stars = 5;
   stars = Math.min(5, Math.max(1, stars));
 
-  let score = Math.round(
-    400
-      + Math.max(0, (limit - stats.sec) * 12)
-      + stats.onRoadPct * 220
-      + (checks ? 120 : stats.checkpointsHit * 40)
-      + (approach ? 80 : 0)
-      + Math.min(60, stats.peakSpeed * 2),
+  const score = Math.round(
+    350
+      + Math.max(0, (limit - stats.sec) * 10)
+      + stats.onRoadPct * 200
+      + stats.padsHit * 80
+      + Math.min(50, stats.peakSpeed * 1.5),
   );
 
-  let label = 'Delivered';
-  let tone: GradeResult['tone'] = 'aqua';
-  if (!onTime) {
-    label = 'Late delivery · tank would’ve tripped';
-    tone = 'coral';
-  } else if (stars >= 5) {
-    label = 'Perfect haul';
-    tone = 'mint';
-  } else if (stars >= 4) {
-    label = 'Clean night run';
-    tone = 'mint';
-  } else if (stars >= 3) {
-    label = 'Solid haul';
-    tone = 'aqua';
-  } else if (onTime) {
-    label = 'Inside window';
-    tone = 'amber';
-  }
-
-  if (stars < 5) {
-    const tip = !onTime ? 'Cut the clock first'
-      : !routeClean ? 'Hug the lit roads harder'
-        : !checks ? 'Sweep every amber gate'
-          : !approach ? 'Square up before the ring'
-            : !fast ? 'Push a cleaner, faster line'
-              : 'One more clean pass';
-    objectives.push({
-      id: 'next',
-      label: `Next star: ${tip}`,
-      done: false,
-      hint: `${stars}/5 · chase a cleaner grade`,
-    });
-  }
-
-  return { label, tone, stars, score, objectives };
+  if (!pads) return { label: 'Incomplete · missed a tank pad', tone: 'coral', stars, score };
+  if (!onTime) return { label: 'Late · tank would’ve tripped', tone: 'coral', stars, score };
+  if (fast && routeClean) return { label: 'Clean multi-pad haul', tone: 'mint', stars, score };
+  if (routeClean) return { label: 'Delivered on roads', tone: 'aqua', stars, score };
+  return { label: 'Delivered', tone: 'amber', stars, score };
 }
-
-export const COACH_STORAGE_KEY = 'avon-drive-coach-v1';
