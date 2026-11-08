@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ChevronLeft, ChevronRight, Clock, MapPin, Users } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Clock, MapPin, Truck, Users } from 'lucide-react';
 import { useStore } from '../state/store';
 import { HandoffModal } from '../components/ShiftHandoffCard';
+import { OccurredStamp } from '../components/OccurredStamp';
+import { mapArt } from '../components/MapMarkers';
 import {
   boundariesInRange,
   buildHandoff,
-  coverageAt,
   latestBoundaryAtOrBefore,
   loadCrewState,
   nextBoundaryAfter,
@@ -59,10 +60,18 @@ export default function Crew() {
     return peopleOnShift(crew, prev + 60);
   }, [crew, boundary]);
 
-  const coverage = useMemo(() => {
-    if (!dataset || !crew) return [];
-    return coverageAt(crew, dataset, analysis, boundary + 60);
-  }, [dataset, crew, analysis, boundary]);
+  const fleetChips = useMemo(() => {
+    if (!dataset || !analysis) return [] as string[];
+    const truckUse: Record<string, number> = {};
+    for (const sp of Object.values(analysis.systemPlans)) {
+      truckUse[sp.system] = Object.values(sp.allocation).reduce((a, b) => a + b, 0);
+    }
+    return dataset.network.systems.map((s) => {
+      const fleet = dataset.ops.systems[s.id]?.emergency_fleet_size ?? 0;
+      const used = truckUse[s.id] ?? 0;
+      return `${s.id} ${Math.max(0, fleet - used)}/${fleet} free`;
+    });
+  }, [dataset, analysis]);
 
   const handoffStops = useMemo(() => {
     if (!dataset) return [] as number[];
@@ -184,44 +193,45 @@ export default function Crew() {
 
           <section className="crew-panel">
             <h2 className="crew-panel-title">
-              <Users size={15} /> Coverage
+              <Truck size={15} /> Emergency trucks
             </h2>
+            <p className="crew-panel-lead">From ops fleet sizes · not staffing.</p>
             <div className="crew-coverage-list">
-              {coverage.length === 0 && (
-                <p className="muted" style={{ margin: 0, fontSize: 13 }}>No special staffing needs right now.</p>
-              )}
-              {coverage.map((c) => (
-                <div key={c.message} className={`crew-cov ${c.severity}`}>{c.message}</div>
+              {fleetChips.map((chip) => (
+                <div key={chip} className="crew-cov ok">{chip}</div>
               ))}
             </div>
           </section>
 
-          <section className="crew-panel">
+          <section className="crew-panel crew-panel--alerts">
             <h2 className="crew-panel-title">
               <Bell size={15} /> During this shift
             </h2>
             {shiftProblems.length === 0 ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>Quiet block. No detected problems in this window.</p>
             ) : (
-              <ul className="crew-prob-list">
+              <div className="crew-alert-cards">
                 {shiftProblems.map((e) => (
-                  <li key={e.id}>
-                    <span className={`crew-prob-dot ${e.category}`} />
-                    <div>
-                      <Link
-                        to={e.category === 'pump_failure' ? `/plan/${encodeURIComponent(e.id)}` : '/alerts'}
-                        className="crew-prob-link"
-                      >
+                  <Link
+                    key={e.id}
+                    to={e.category === 'pump_failure' ? `/?f=${encodeURIComponent(e.facility)}&flow=decide` : '/alerts'}
+                    className={`crew-alert-card ${e.category}`}
+                  >
+                    <div className="crew-alert-card__icon">
+                      <img src={mapArt.tank} alt="" width={44} height={34} />
+                    </div>
+                    <div className="crew-alert-card__body">
+                      <div className="crew-alert-card__title">
                         {CATEGORY_LABEL[e.category]} · {fmt.short(e.facility)}
-                      </Link>
-                      <div className="dim" style={{ fontSize: 11 }}>
-                        {e.status === 'ongoing' ? 'Still open' : 'Resolved'} · since {fmt.time(e.onset)}
-                        {e.end ? ` · ended ${fmt.time(e.end)}` : ''}
+                      </div>
+                      <div className="crew-alert-card__meta">
+                        {e.status === 'ongoing' ? 'Still open' : 'Resolved'} · {e.system}
                       </div>
                     </div>
-                  </li>
+                    <OccurredStamp unix={e.onset} label="Started" compact />
+                  </Link>
                 ))}
-              </ul>
+              </div>
             )}
             <div className="crew-panel-actions">
               <Link to="/alerts" className="btn primary sm">Open alerts</Link>
@@ -262,10 +272,5 @@ function WhoList({
 }
 
 function shortWhen(unix: number): string {
-  const d = new Date(unix * 1000);
-  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
-  let h = d.getUTCHours();
-  const ampm = h >= 12 ? 'p' : 'a';
-  h = h % 12 || 12;
-  return `${day} ${h}${ampm}`;
+  return fmt.time(unix);
 }

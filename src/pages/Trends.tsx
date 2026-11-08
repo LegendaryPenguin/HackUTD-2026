@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import { useStore } from '../state/store';
 import { facilities, fmt, indexAt, valueAt, CATEGORY_LABEL } from '../lib/model';
+import { downloadDecisionsCsv } from '../lib/decisionsExport';
 import type { Dataset, FacilityCtx } from '../lib/types';
 import { catHex } from '../components/ui';
 import { mapArt, mapBackgrounds, wellBadge } from '../components/MapMarkers';
@@ -70,7 +71,7 @@ function buildRows(
 }
 
 export default function Trends() {
-  const { dataset, analysis, now, setNow } = useStore();
+  const { dataset, analysis, now, setNow, dispatched } = useStore();
   const [params, setParams] = useSearchParams();
   const facs = useMemo(() => (dataset ? facilities(dataset.network, dataset.ops) : []), [dataset]);
   const mode = ((params.get('preset') as Mode) in { tank: 1, leak: 1, pump: 1, wells: 1 }
@@ -79,6 +80,7 @@ export default function Trends() {
   const focusId = params.get('f');
   const [win, setWin] = useState(1);
   const panelRefs = useRef<Record<string, HTMLElement | null>>({});
+  const decisionCount = Object.keys(dispatched).length;
 
   useEffect(() => {
     if (!focusId) return;
@@ -115,6 +117,15 @@ export default function Trends() {
                 <button key={w.l} type="button" className={win === i ? 'on' : ''} onClick={() => setWin(i)}>{w.l}</button>
               ))}
             </div>
+            <button
+              type="button"
+              className="btn sm"
+              title="Export week events, decisions, and impacts as CSV"
+              onClick={() => downloadDecisionsCsv(dataset, analysis, dispatched)}
+            >
+              <Download size={14} /> decisions.csv
+              {decisionCount > 0 ? ` · ${decisionCount}` : ''}
+            </button>
           </div>
         </div>
 
@@ -169,10 +180,10 @@ export default function Trends() {
           let summary = '';
           if (mode === 'tank') {
             summary = level >= limits.shutdown
-              ? `Tank is at ${level.toFixed(0)}% — at or above the 92% shutdown line.`
+              ? `Tank is at ${level.toFixed(0)}%, at or above the 92% shutdown line.`
               : level >= limits.warning
-                ? `Tank is at ${level.toFixed(0)}% — past the 85% warning line, heading toward 92% shutdown.`
-                : `Tank is at ${level.toFixed(0)}% — below the 85% warning line.`;
+                ? `Tank is at ${level.toFixed(0)}%, past the 85% warning line, heading toward 92% shutdown.`
+                : `Tank is at ${level.toFixed(0)}%, below the 85% warning line.`;
           } else if (mode === 'leak') {
             summary = loss > 20
               ? `About ${fmt.num(loss)} bpd is missing between pump send and disposal receive.`

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Maximize2 } from 'lucide-react';
@@ -6,8 +6,7 @@ import { useStore } from '../state/store';
 import { facilities, fmt, hoursToLimit } from '../lib/model';
 import type { System } from '../lib/types';
 import { liveFacility, statusColor, statusLabel, type LiveFacility } from '../lib/status';
-import { applyDispatchOverlay, buildDispatchedPlan, dispatchForFacility } from '../lib/dispatch';
-import { failureContext } from '../lib/planner';
+import { applyDispatchOverlay, dispatchForFacility } from '../lib/dispatch';
 import {
   MapPin,
   facilityBadge,
@@ -99,7 +98,7 @@ function isCritical(status: LiveFacility['status']) {
 }
 
 export default function Network() {
-  const { dataset, analysis, now, dispatched, simulating, exitSimulate, dispatch } = useStore();
+  const { dataset, analysis, now, dispatched } = useStore();
   const [params, setParams] = useSearchParams();
   const [hover, setHover] = useState<string | null>(null);
   const [manualFocus, setManualFocus] = useState<string | null>(null);
@@ -110,20 +109,25 @@ export default function Network() {
     if (!dataset || !analysis) return new Map<string, LiveFacility>();
     return new Map(facs.map((f) => {
       let L = liveFacility(dataset, f, now, analysis.ongoing);
-      let d = dispatchForFacility(dispatched, f.id);
-      if (simulating && simulating.facilityId === f.id) {
-        const ev = analysis.events.find((e) => e.id === simulating.eventId);
-        if (ev) {
-          const ctx = failureContext(ev, dataset, simulating.onsetUnix);
-          d = buildDispatchedPlan(ctx, dataset, simulating.plan, simulating.onsetUnix);
-        }
-      }
+      const d = dispatchForFacility(dispatched, f.id);
       if (d) L = applyDispatchOverlay(L, d, now, dataset);
       return [f.id, L] as const;
     }));
-  }, [dataset, analysis, facs, now, dispatched, simulating]);
+  }, [dataset, analysis, facs, now, dispatched]);
 
   const [narrow, setNarrow] = useState(false);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    moved: boolean;
+  } | null>(null);
+  /** Survives past pointerup so a drag doesn't also open a facility card. */
+  const suppressClickRef = useRef(false);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 900px)');
     const apply = () => setNarrow(mq.matches);
@@ -131,6 +135,10 @@ export default function Network() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, []);
+  // Fresh framing whenever focus / selection changes.
+  useEffect(() => {
+    setPan({ x: 0, y: 0 });
+  }, [manualFocus, selectedId]);
   const pinScale = narrow ? 0.7 : 1;
 
   const layout = useMemo(
@@ -145,7 +153,7 @@ export default function Network() {
   const sysFocus = selectedFac ? selectedFac.system : manualFocus;
   const setSysFocus = (id: string | null) => { setManualFocus(id); if (selectedId) setParams({}); };
 
-  // focus / fit transform — keep every pin inside the viewBox (meet, not crop)
+  // Zoom a notch past "fit" so edges stick out — drag to slide stations toward center.
   const focusSys = dataset.network.systems.find((s) => s.id === sysFocus) ?? null;
   const packPts = (sys: System): XY[] => {
     const L = layout.get(sys.id)!;
@@ -162,30 +170,45 @@ export default function Network() {
   const fitPts = focusSys
     ? packPts(focusSys)
     : dataset.network.systems.flatMap((s) => packPts(s));
-  const fitPadX = focusSys ? (narrow ? 100 : 140) : (narrow ? 70 : 90);
-  const fitPadTop = focusSys ? (narrow ? 110 : 140) : (narrow ? 70 : 80);
-  const fitPadBottom = focusSys ? (narrow ? 120 : 150) : (narrow ? 100 : 120);
+  const fitPadX = focusSys ? (narrow ? 90 : 120) : (narrow ? 50 : 60);
+  const fitPadTop = focusSys ? (narrow ? 100 : 120) : (narrow ? 50 : 55);
+  const fitPadBottom = focusSys ? (narrow ? 110 : 130) : (narrow ? 70 : 80);
   const minX = Math.min(...fitPts.map((p) => p[0])) - fitPadX;
   const maxX = Math.max(...fitPts.map((p) => p[0])) + fitPadX;
   const minY = Math.min(...fitPts.map((p) => p[1])) - fitPadTop;
   const maxY = Math.max(...fitPts.map((p) => p[1])) + fitPadBottom;
-  const fitK = Math.min(
-    W / (maxX - minX || 1),
-    H / (maxY - minY || 1),
-    focusSys ? (narrow ? 1.85 : 2.1) : (narrow ? 0.95 : 0.9),
-  );
+  const baseFit = Math.min(W / (maxX - minX || 1), H / (maxY - minY || 1));
+  const fitK = focusSys
+    ? Math.min(baseFit * 1.08, narrow ? 2.05 : 2.35)
+    : baseFit * (narrow ? 1.22 : 1.28);
+  const panLimitX = Math.max(48, ((maxX - minX) * fitK - W) / 2 + 70);
+  const panLimitY = Math.max(36, ((maxY - minY) * fitK - H) / 2 + 56);
+  const clampPan = (x: number, y: number) => ({
+    x: Math.max(-panLimitX, Math.min(panLimitX, x)),
+    y: Math.max(-panLimitY, Math.min(panLimitY, y)),
+  });
   // Bias the framed content slightly upward so nothing sits under the timeline.
   const transform = {
     k: fitK,
-    x: W / 2 - ((minX + maxX) / 2) * fitK,
-    y: H * 0.46 - ((minY + maxY) / 2) * fitK,
+    x: W / 2 - ((minX + maxX) / 2) * fitK + pan.x,
+    y: H * 0.46 - ((minY + maxY) / 2) * fitK + pan.y,
+  };
+
+  const clientToSvg = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: clientX, y: clientY };
+    const local = pt.matrixTransform(ctm.inverse());
+    return { x: local.x, y: local.y };
   };
   const selected = selectedId ? live.get(selectedId) ?? null : null;
   // Open Identify/Decide/Act for any selected facility that still has an active pump-failure plan.
   const triageFail = selected
     ? analysis.orderedFailures.find((c) => c.facility.id === selected.f.id)
     : undefined;
-  const showTriage = Boolean(selected && triageFail && !simulating);
+  const showTriage = Boolean(selected && triageFail);
   const inspectEvent = selected && (selected.status === 'leak' || selected.status === 'wear')
     ? analysis.ongoing.find((e) =>
       e.facility === selected.f.id
@@ -193,8 +216,8 @@ export default function Network() {
       ?? analysis.ongoing.find((e) => e.facility === selected.f.id)
     : null;
   const showInspect = Boolean(selected && inspectEvent && !showTriage);
-  // Any other click — same glass card chrome, live data only (no recommendations).
-  const showStatus = Boolean(selected && !showTriage && !showInspect && !simulating);
+  // Any other click: same glass card chrome, live data only (no recommendations).
+  const showStatus = Boolean(selected && !showTriage && !showInspect);
 
   const stationFailureId = (systemId: string) => {
     const hit = analysis.orderedFailures.find((c) => c.facility.system === systemId);
@@ -214,12 +237,59 @@ export default function Network() {
     <div className="map-screen">
       <div className="map-stage">
         <div className="map-parallax">
-        <div className="map-topo" aria-hidden>
-          <div className="map-topo__photo" style={{ backgroundImage: `url(${FIELD_BG})` }} />
+        {/* Fixed vignette only — the field photo lives in the SVG transform with the pins. */}
+        <div className="map-topo map-topo--chrome" aria-hidden>
           <div className="map-topo__wave" />
         </div>
         <div className="map-mist" aria-hidden />
-        <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" preserveAspectRatio="xMidYMid meet">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className={`map-svg${panning ? ' is-panning' : ''}`}
+          preserveAspectRatio="xMidYMid meet"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            // Only empty map chrome starts a pan — pins keep their clicks.
+            if ((e.target as Element).closest('.map-pin-hit')) return;
+            const svg = e.currentTarget;
+            const local = clientToSvg(svg, e.clientX, e.clientY);
+            dragRef.current = {
+              pointerId: e.pointerId,
+              x: local.x,
+              y: local.y,
+              panX: pan.x,
+              panY: pan.y,
+              moved: false,
+            };
+            svg.setPointerCapture(e.pointerId);
+            setPanning(true);
+          }}
+          onPointerMove={(e) => {
+            const drag = dragRef.current;
+            if (!drag || drag.pointerId !== e.pointerId) return;
+            const local = clientToSvg(e.currentTarget, e.clientX, e.clientY);
+            const dx = local.x - drag.x;
+            const dy = local.y - drag.y;
+            if (!drag.moved && dx * dx + dy * dy > 9) drag.moved = true;
+            if (!drag.moved) return;
+            setPan(clampPan(drag.panX + dx, drag.panY + dy));
+          }}
+          onPointerUp={(e) => {
+            const drag = dragRef.current;
+            if (!drag || drag.pointerId !== e.pointerId) return;
+            if (drag.moved) {
+              suppressClickRef.current = true;
+              window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+            }
+            dragRef.current = null;
+            setPanning(false);
+            try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+          }}
+          onPointerCancel={(e) => {
+            dragRef.current = null;
+            setPanning(false);
+            try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+          }}
+        >
           <defs>
             <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="3" result="b" />
@@ -229,8 +299,48 @@ export default function Network() {
               <feGaussianBlur stdDeviation="4" result="b" />
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
+            <radialGradient id="map-field-shade" cx="50%" cy="42%" r="68%">
+              <stop offset="0%" stopColor="rgba(2,8,14,0)" />
+              <stop offset="70%" stopColor="rgba(2,8,14,0.18)" />
+              <stop offset="100%" stopColor="rgba(2,8,14,0.55)" />
+            </radialGradient>
           </defs>
-          <g style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, transformOrigin: '0 0', transformBox: 'view-box', transition: 'transform .75s cubic-bezier(.2,.8,.2,1)' }}>
+          {/* Drag surface — oversized so pan still grabs at the edges */}
+          <rect
+            x={-W}
+            y={-H}
+            width={W * 3}
+            height={H * 3}
+            fill="transparent"
+            style={{ cursor: panning ? 'grabbing' : 'grab' }}
+          />
+          <g
+            className="map-world"
+            style={{
+              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`,
+              transformOrigin: '0 0',
+              transformBox: 'view-box',
+              transition: panning ? 'none' : 'transform .55s cubic-bezier(.2,.8,.2,1)',
+            }}
+          >
+            {/* Field photo in the same space as stations — pans/zooms with pins */}
+            <image
+              href={FIELD_BG}
+              x={-W * 0.2}
+              y={-H * 0.2}
+              width={W * 1.4}
+              height={H * 1.4}
+              preserveAspectRatio="xMidYMid slice"
+              style={{ pointerEvents: 'none' }}
+            />
+            <rect
+              x={-W * 0.2}
+              y={-H * 0.2}
+              width={W * 1.4}
+              height={H * 1.4}
+              fill="url(#map-field-shade)"
+              style={{ pointerEvents: 'none' }}
+            />
             {dataset.network.systems.map((s) => (
               <SystemLayer
                 key={s.id}
@@ -242,6 +352,7 @@ export default function Network() {
                 selected={selectedId}
                 failureId={stationFailureId(s.id)}
                 onSelect={(id) => {
+                  if (suppressClickRef.current || dragRef.current?.moved) return;
                   const L = live.get(id);
                   if (L?.status === 'failure' || analysis.orderedFailures.some((c) => c.facility.id === id)) {
                     setParams({ f: id, flow: 'identify' });
@@ -308,20 +419,6 @@ export default function Network() {
         <div className="map-float map-float-tr">
           <FinancialsBox />
         </div>
-
-        {simulating && (
-          <div className="sim-dock">
-            <div className="sim-dock-msg">
-              Simulating plan — scrub the timeline to see finances change. You do not know future errors yet.
-            </div>
-            <div className="sim-dock-actions">
-              <button type="button" className="btn sm" onClick={exitSimulate}>Exit simulation</button>
-              <button type="button" className="btn primary sm" onClick={() => { dispatch(simulating.eventId, simulating.plan); exitSimulate(); }}>
-                Put into action
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="map-float map-float-bl map-legend">
           <LegendChip src={mapArt.tank} label="facility" />
@@ -528,6 +625,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
       />
 
       <g
+        className="map-pin-hit"
         transform={`translate(${dx},${dy})`}
         onMouseEnter={() => setHover(disposalKey)}
         onMouseLeave={() => setHover(null)}
@@ -552,6 +650,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
       </g>
 
       <g
+        className="map-pin-hit"
         transform={`translate(${yx},${yy})`}
         onMouseEnter={() => setHover(truckKey)}
         onMouseLeave={() => setHover(null)}
@@ -592,6 +691,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
         return (
           <g
             key={f.id}
+            className="map-pin-hit"
             transform={`translate(${fx},${fy})`}
             style={{ cursor: 'pointer' }}
             onMouseEnter={() => setHover(f.id)}
@@ -669,16 +769,24 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
   );
 }
 
+function hoverTone(status: LiveFacility['status']) {
+  if (status === 'failure' || status === 'leak') return 'fault';
+  if (status === 'wear' || status === 'warning') return 'warn';
+  return 'ok';
+}
+
 function HoverCard({ l }: { l: LiveFacility }) {
   const netFill = Math.max(0, l.inflow - (l.pumpStatus === 1 ? l.pumpFlow : 0));
   const hrsWarn = hoursToLimit(l.level, l.f.tank.capacity_bbl, netFill, 85);
   const pumpMax = Math.max(1, l.f.pump.max_flow_bpd);
   const pipeMax = Math.max(1, l.f.pipeline.max_bpd);
   const online = l.wells.filter((w) => w.status === 1).length;
+  const tone = hoverTone(l.status);
   return (
-    <div className="hover-card-viz">
+    <div className={`hover-card-viz tone-${tone}`}>
+      <div className="hover-card-viz__accent" aria-hidden />
       <div className="hover-card-viz__head">
-        <div style={{ position: 'relative' }}>
+        <div className="hover-card-viz__icon">
           <img src={mapArt.tank} alt="" width={44} height={44} style={{ objectFit: 'contain' }} />
           <span className="chip aqua" style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 10, padding: '1px 6px' }}>{facilityBadge(l.f.id)}</span>
         </div>
@@ -686,7 +794,7 @@ function HoverCard({ l }: { l: LiveFacility }) {
           <b>{fmt.short(l.f.id)}</b>
           <div className="dim" style={{ fontSize: 11 }}>{l.f.system} · {l.f.lat.toFixed(4)}, {l.f.lon.toFixed(4)}</div>
         </div>
-        <span className="chip ghost" style={{ color: statusColor[l.status] }}>
+        <span className={`hover-card-viz__chip tone-${tone}`}>
           <i className="dot" style={{ background: statusColor[l.status] }} />
           {statusLabel[l.status]}
         </span>

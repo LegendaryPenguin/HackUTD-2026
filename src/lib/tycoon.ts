@@ -142,6 +142,8 @@ export const MAGNET_R = 4.6;
 export const MAX_COINS = 28;
 /** One emergency truck haul */
 export const TRUCK_COST = 4_800;
+/** Pay to dump water when tanks overflow (not free). */
+export const DUMP_COST = 9_600;
 export const TRUCK_DROP_PCT = 22;
 export const SHUT_THRESHOLD = 92;
 /** $/bbl realized oil price */
@@ -381,22 +383,22 @@ export function emergencyDump(state: TycoonState): TycoonState {
     };
   }
   const dumped = Math.max(80, state.waterCap * 0.45);
-  const grant = Math.max(0, need - state.cash);
+  const fee = Math.min(DUMP_COST, Math.max(0, state.cash));
   return {
     ...state,
     waterBbl: Math.max(0, state.waterBbl - dumped),
     overflowShut: false,
     reliefUsed: true,
     softlockSec: 0,
-    cash: state.cash + grant,
+    cash: Math.max(0, state.cash - fee),
     tip: state.tipsSeen.includes('relief')
       ? state.tip
       : {
           id: 'relief',
           title: 'Back online',
-          body: 'We cleared some water and added cash. Buy a bigger tank or more pipe so this does not happen again.',
+          body: `Dump cost ${fmtCash(fee)}. Buy a bigger tank or more pipe so this does not happen again.`,
         },
-    popups: pushPopup(state, 'Emergency dump', 'Water cleared. The field can produce again.', 'mint'),
+    popups: pushPopup(state, 'Emergency dump', `Water cleared for ${fmtCash(fee)}. Produce again, then upgrade disposal.`, 'mint'),
   };
 }
 
@@ -893,7 +895,7 @@ export function tick(state: TycoonState, dt: number): TycoonState {
       next,
       'stuck',
       'You are stuck',
-      'Tap Emergency dump in the shop. It clears water for free and gives enough cash for a tank buy.',
+      'Tap Emergency dump in the shop. It clears water for a fee so you can produce again.',
     );
     next = { ...next, softlockSec: next.softlockSec + step };
     if (next.softlockSec > 8) next = emergencyDump({ ...next, tip: null });

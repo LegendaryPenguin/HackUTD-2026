@@ -5,6 +5,7 @@ import {
   MAX_PADS,
   PAD_COST,
   SHUT_THRESHOLD,
+  DUMP_COST,
   TRUCK_COST,
   buyTruck,
   calendarParts,
@@ -138,7 +139,7 @@ export default function Tycoon() {
 
       <header className="ty-top">
         <div>
-          <p className="ty-kicker">Extra. Avon decade</p>
+          <p className="ty-kicker">Extra · decade sim</p>
           <h1 className="ty-title">Oil Tycoon</h1>
         </div>
         <div className="ty-earn-stack">
@@ -273,7 +274,7 @@ export default function Tycoon() {
             <LifeBuoy size={18} />
             <span>
               <b>Emergency dump</b>
-              <small>Free. Clears water and gives cash.</small>
+              <small>{fmtCash(DUMP_COST)}. Clears water so you can produce again.</small>
             </span>
           </button>
         )}

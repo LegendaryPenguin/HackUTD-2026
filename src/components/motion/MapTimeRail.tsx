@@ -2,13 +2,6 @@ import { RotateCcw } from 'lucide-react';
 import { TimelineScrubber, type TimelineTick } from '../TimelineScrubber';
 import './map-time-rail.css';
 
-/** Compact scrubber ends — full stamp lives once in the status column. */
-function shortStamp(full: string): string {
-  const parts = full.trim().split(/\s+/);
-  if (parts.length >= 3) return `${parts[0]} ${parts[1]}`;
-  return full;
-}
-
 /** Bottom field-map instrument strip — matte chronograph over the basin. */
 export function MapTimeRail({
   start,
@@ -63,7 +56,7 @@ export function MapTimeRail({
         step={60}
         ticks={ticks}
         className="is-map"
-        formatValue={(u) => shortStamp(formatValue(u))}
+        formatValue={formatValue}
         labels={{ region: 'Field map week timeline' }}
         onValueChange={onValueChange}
         onTickJump={onTickJump}

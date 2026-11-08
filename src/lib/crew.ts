@@ -465,15 +465,15 @@ export function buildHandoff(
   if (fails) lastShift.push(`${fails} pump repair${fails === 1 ? '' : 's'} finished.`);
 
   const failSystems = [...new Set(doNow.map((d) => d.system))];
-  const inConsole = incoming.find((p) => p.role === 'console');
-  const inDriver = incoming.find((p) => p.role === 'driver' && failSystems.some((s) => p.detail.includes(s)));
   let lead: string;
-  if (doNow.length === 0) {
-    lead = `Quiet handoff. ${inConsole ? `${inConsole.name} has console.` : 'Confirm console coverage.'}`;
+  if (doNow.length === 0 && watch.length === 0) {
+    lead = 'Quiet handoff. No tanks filling and nothing flagged for inspection.';
+  } else if (doNow.length === 0) {
+    lead = `Quiet on tank fill. ${watch.length} item${watch.length === 1 ? '' : 's'} still need an inspector.`;
   } else if (doNow.length === 1) {
-    lead = `One tank is filling on ${doNow[0].system}. ${inConsole ? `${inConsole.name} takes console` : 'Confirm who has console'}${inDriver ? `. ${inDriver.name} has the trucks` : ''}.`;
+    lead = `One tank is filling on ${doNow[0].system}. Act before shut-in.`;
   } else {
-    lead = `${doNow.length} tanks are filling${failSystems.length === 1 ? ` on ${failSystems[0]}` : ''}. ${inConsole ? `${inConsole.name} takes console` : 'Confirm who has console'}${inDriver ? `. ${inDriver.name} has the trucks` : ''}.`;
+    lead = `${doNow.length} tanks are filling${failSystems.length === 1 ? ` on ${failSystems[0]}` : ''}. Prioritize soonest shut-in first.`;
   }
 
   return {
@@ -492,21 +492,11 @@ export function buildHandoff(
 }
 
 export function handoffPlainText(r: HandoffReport): string {
-  const day = fmt.date(r.boundaryUnix);
-  const time = fmt.time(r.boundaryUnix);
   const lines: string[] = [];
   lines.push(`Shift handoff`);
-  lines.push(`${day} · ${time} · ${cap(r.fromKind)} → ${cap(r.toKind)}`);
+  lines.push(`${fmt.time(r.boundaryUnix)} UTC · ${cap(r.fromKind)} → ${cap(r.toKind)}`);
   lines.push('');
   lines.push(r.lead);
-  lines.push('');
-  lines.push('OUTGOING');
-  for (const p of r.outgoing) lines.push(`· ${p.name} · ${p.detail}`);
-  if (!r.outgoing.length) lines.push('· (none assigned)');
-  lines.push('');
-  lines.push('INCOMING');
-  for (const p of r.incoming) lines.push(`· ${p.name} · ${p.detail}`);
-  if (!r.incoming.length) lines.push('· (none assigned)');
   lines.push('');
   lines.push('DO NOW');
   if (!r.doNow.length) lines.push('· Nothing filling right now.');
@@ -518,9 +508,6 @@ export function handoffPlainText(r: HandoffReport): string {
   lines.push('WATCH');
   if (!r.watch.length) lines.push('· No leaks or wear alerts.');
   for (const w of r.watch) lines.push(`· ${w.label}`);
-  lines.push('');
-  lines.push('COVERAGE');
-  for (const c of r.coverage) lines.push(`· ${c.message}`);
   lines.push('');
   lines.push('LAST SHIFT');
   for (const x of r.lastShift) lines.push(`· ${x}`);

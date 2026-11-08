@@ -15,7 +15,7 @@ export function shiftSummary(ds: Dataset, a: Analysis, hoursBack = 12): string {
   const since = a.now - hoursBack * 3600;
   const recent = a.events.filter((e) => e.onset >= since || e.status === 'ongoing' || (e.end != null && e.end >= since));
   const lines: string[] = [];
-  lines.push(`Shift handoff — ${fmt.date(a.now)} ${fmt.time(a.now)} UTC. Dataset ${ds.name}.`);
+  lines.push(`Shift handoff, ${fmt.time(a.now)} UTC. Dataset ${ds.name}.`);
   if (!recent.length) {
     lines.push(`Quiet shift. No problems in the last ${hoursBack} hours; all ${ds.network.systems.reduce((n, s) => n + s.facilities.length, 0)} facilities normal.`);
     return lines.join('\n');
@@ -47,12 +47,12 @@ export function shiftSummary(ds: Dataset, a: Analysis, hoursBack = 12): string {
   }
   for (const e of leaks) {
     lines.push(
-      `${CATEGORY_LABEL[e.category]} on ${e.asset} (${e.system}) since ~${fmt.time(e.onset)}${e.status === 'ongoing' ? ', still leaking — inspector needed' : `, stopped ${fmt.time(e.end!)}`}.`,
+      `${CATEGORY_LABEL[e.category]} on ${e.asset} (${e.system}) since ~${fmt.time(e.onset)}${e.status === 'ongoing' ? ', still leaking, inspector needed' : `, stopped ${fmt.time(e.end!)}`}.`,
     );
   }
   for (const e of degs) {
     lines.push(
-      `${e.asset} (${e.system}) wearing out since ~${fmt.time(e.onset)}${e.status === 'ongoing' ? ' — schedule inspection' : e.end != null ? `, ended ${fmt.time(e.end)}` : ''}.`,
+      `${e.asset} (${e.system}) wearing out since ~${fmt.time(e.onset)}${e.status === 'ongoing' ? '. Schedule inspection.' : e.end != null ? `, ended ${fmt.time(e.end)}` : ''}.`,
     );
   }
   const total = Object.values(a.systemPlans).reduce((s, p) => s + p.totalCost, 0);

@@ -1,28 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, LineChart, Play, Send, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LineChart, Send, X } from 'lucide-react';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
-import { mapArt } from './MapMarkers';
+import { facilityBadge, mapArt } from './MapMarkers';
 import { PlanTraceChart } from './PlanTraceChart';
+import { PlanImpactCompare } from './PlanImpactCompare';
 import { calcBreakdown } from '../lib/financials';
 import { representativePlans } from '../lib/scenarios';
 import type { LiveFacility } from '../lib/status';
 import type { PlanOption } from '../lib/types';
 import { AvonCardShell } from './AvonCardShell';
-import { LiquidMeter } from './ui';
+import { OccurredStamp } from './OccurredStamp';
 
 type Step = 'identify' | 'decide' | 'act';
-const STEPS: Step[] = ['identify', 'decide', 'act'];
-const STEP_LABEL: Record<Step, string> = {
-  identify: 'Identify',
-  decide: 'Decide',
-  act: 'Act',
-};
 
 /**
- * Night-guard flow: Identify → Decide → Act on a ReflectiveCard.
+ * Night-guard flow: Identify → Decide → Act.
  */
 export function FacilityTriageCard({
   live,
@@ -33,7 +28,7 @@ export function FacilityTriageCard({
   onClose: () => void;
   initialStep?: Step;
 }) {
-  const { dataset, analysis, dispatch, startSimulate } = useStore();
+  const { dataset, analysis, dispatch } = useStore();
   const [step, setStep] = useState<Step>(initialStep);
   const [calc, setCalc] = useState<{ kind: 'nothing' | 'plan'; plan: PlanOption } | null>(null);
 
@@ -84,8 +79,8 @@ export function FacilityTriageCard({
   const selected = options.find((o) => o.label === (selectedLabel ?? rec?.label)) ?? rec ?? options[0] ?? fallbackPlan;
 
   const onsetLabel = fmt.time(fail.event.onset);
-  const leftLabel = isFinite(fail.hoursToLimit) ? fmt.dur(fail.hoursToLimit) : '—';
-  const leftWords = isFinite(fail.hoursToLimit) ? hoursWords(fail.hoursToLimit) : '—';
+  const leftLabel = isFinite(fail.hoursToLimit) ? fmt.dur(fail.hoursToLimit) : '-';
+  const leftWords = isFinite(fail.hoursToLimit) ? hoursWords(fail.hoursToLimit) : '-';
   const savedRec = Math.max(0, fail.doNothingCost - (rec?.cost ?? fallbackPlan.cost));
   const savedSel = Math.max(0, fail.doNothingCost - selected.cost);
   const repairH = dataset.ops.expected_repair_hours.pump_failure;
@@ -98,10 +93,6 @@ export function FacilityTriageCard({
 
   const actionSteps = buildActionSteps(selected, fail.facility.response_min, repairH, stationName);
 
-  const simulate = () => {
-    startSimulate(fail.event.id, selected);
-    onClose();
-  };
   const commit = () => {
     dispatch(fail.event.id, selected);
     onClose();
@@ -120,37 +111,30 @@ export function FacilityTriageCard({
             <ArrowLeft size={14} /> Back
           </button>
         ) : undefined}
-        topCenter={(
-          <div className="avon-steps" aria-label="Triage steps">
-            {STEPS.map((s) => (
-              <span key={s} className={`avon-steps__item ${s === step ? 'is-active' : ''}`}>
-                {STEP_LABEL[s]}
-              </span>
-            ))}
-          </div>
-        )}
       >
             {step === 'identify' && (
-              <div className="avon-status">
+              <div className="avon-triage avon-triage--identify">
                 <div className="triage-head">
                   <div className="triage-icon">
-                    <img src={mapArt.tank} alt="" width={64} height={48} />
+                    <img src={mapArt.tank} alt="" width={72} height={56} />
+                    <span className="chip aqua triage-badge">{facilityBadge(live.f.id)}</span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="triage-title-row">
                       <h2 className="triage-title">{fmt.short(live.f.id)}</h2>
-                      <span className="chip coral">Pump stopped</span>
+                      <span className="avon-pill avon-pill--fault">Pump stopped</span>
                     </div>
                     <p className="triage-sentence">
                       The pump that empties this tank has stopped. Water from the wells is still filling the tank.
                     </p>
                   </div>
+                  <OccurredStamp unix={fail.event.onset} label="Failed" compact />
                 </div>
 
                 <div className="triage-facts">
                   <div>
                     <div className="triage-fact-label">Where</div>
-                    <div>{stationName}</div>
+                    <div>{fmt.short(live.f.id)} · System {live.f.system}</div>
                   </div>
                   <div>
                     <div className="triage-fact-label">What broke</div>
@@ -158,7 +142,9 @@ export function FacilityTriageCard({
                   </div>
                   <div>
                     <div className="triage-fact-label">Why it matters</div>
-                    <div>If the tank hits 92% full, every well here is forced off until the pump is fixed (~{repairH} hours).</div>
+                    <div>
+                      If the tank hits 92% full, every well here is forced off and oil/gas money stops until the pump is fixed (~{repairH} hours).
+                    </div>
                   </div>
                 </div>
 
@@ -169,40 +155,31 @@ export function FacilityTriageCard({
                   </div>
                 </div>
 
-                <LiquidMeter
-                  label="Tank fill"
-                  display={`${fail.levelPct.toFixed(0)}%`}
-                  value={fail.levelPct}
-                  max={100}
-                  warn={85}
-                  shut={92}
-                  fluid="water"
-                  height={14}
-                />
-
                 {rec && (
                   <div className="avon-status__chart">
-                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={96} compact />
+                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={148} />
                   </div>
                 )}
 
-                <div className="avon-status__chips">
-                  <div className="avon-status__chip is-coral">
-                    <div className="triage-fact-label">Doing nothing</div>
-                    <b>~{fmt.money(fail.doNothingCost)} lost</b>
-                    <span>Wells forced off in {leftLabel} · production stops until repair.</span>
+                <div className="impact-row">
+                  <div className="impact-card coral">
+                    <div className="impact-label">Doing nothing</div>
+                    <div className="impact-value impact-lost">~{fmt.money(fail.doNothingCost)} lost</div>
+                    <p className="impact-copy">
+                      Wells forced off in {leftLabel} · production stops until repair.
+                    </p>
                   </div>
                   {rec && (
-                    <div className="avon-status__chip is-mint">
-                      <div className="triage-fact-label">With recommended plan</div>
-                      <b>Saves ~{fmt.money(savedRec)}</b>
-                      <span>{truckBlurb}</span>
+                    <div className="impact-card mint">
+                      <div className="impact-label">With recommended plan</div>
+                      <div className="impact-value impact-saved">Saves ~{fmt.money(savedRec)}</div>
+                      <p className="impact-copy">{truckBlurb}</p>
                     </div>
                   )}
                 </div>
 
                 <div className="triage-actions" style={{ flexDirection: 'column', gap: 8 }}>
-                  <button type="button" className="btn primary triage-cta" onClick={() => setStep('decide')}>
+                  <button type="button" className="btn avon-cta" onClick={() => setStep('decide')}>
                     Next: choose a plan <ArrowRight size={16} />
                   </button>
                   <Link to="/alerts" className="btn ghost sm" onClick={onClose} style={{ justifyContent: 'center' }}>
@@ -216,7 +193,7 @@ export function FacilityTriageCard({
               <div className="avon-status">
                 <div className="triage-plans-head">
                   <h2 className="triage-title" style={{ fontSize: 22, textAlign: 'center' }}>Choose a plan</h2>
-                  <p className="triage-plans-sub">{stationName} · pick one path, then Act</p>
+                  <p className="triage-plans-sub">{stationName} · pick a plan, then put it into action</p>
                 </div>
 
                 <div className="avon-plan-choices">
@@ -238,6 +215,8 @@ export function FacilityTriageCard({
                   })}
                 </div>
 
+                <PlanImpactCompare ctx={fail} ds={dataset} plan={selected} compact />
+
                 <div className="avon-status__chips">
                   <div className="avon-status__chip is-coral">
                     <div className="triage-fact-label">Doing nothing</div>
@@ -255,12 +234,9 @@ export function FacilityTriageCard({
                   </div>
                 </div>
 
-                <div className="triage-actions" style={{ gap: 8 }}>
-                  <button type="button" className="btn ghost" onClick={simulate}>
-                    <Play size={14} /> Simulate
-                  </button>
-                  <button type="button" className="btn primary" onClick={() => setStep('act')} style={{ flex: 1 }}>
-                    Act <ArrowRight size={14} />
+                <div className="triage-actions">
+                  <button type="button" className="btn primary triage-cta" onClick={() => setStep('act')}>
+                    Act <ArrowRight size={16} />
                   </button>
                 </div>
               </div>
@@ -281,6 +257,8 @@ export function FacilityTriageCard({
                   </div>
                 </div>
 
+                <PlanImpactCompare ctx={fail} ds={dataset} plan={selected} />
+
                 <ol className="avon-act-steps">
                   {actionSteps.map((line, i) => (
                     <li key={line}>
@@ -296,12 +274,9 @@ export function FacilityTriageCard({
                   {selected.shutInCost > 0 ? ` · shut-ins ${fmt.money(selected.shutInCost)}` : ''}
                 </div>
 
-                <div className="triage-actions" style={{ gap: 8 }}>
-                  <button type="button" className="btn ghost" onClick={simulate}>
-                    <Play size={14} /> Simulate first
-                  </button>
-                  <button type="button" className="btn primary" onClick={commit} style={{ flex: 1 }}>
-                    <Send size={14} /> Put into action
+                <div className="triage-actions">
+                  <button type="button" className="btn primary triage-cta" onClick={commit}>
+                    <Send size={16} /> Put into action
                   </button>
                 </div>
               </div>
@@ -335,7 +310,7 @@ export function FacilityTriageCard({
 }
 
 function hoursWords(h: number): string {
-  if (!isFinite(h) || h < 0) return '—';
+  if (!isFinite(h) || h < 0) return '-';
   const totalMin = Math.round(h * 60);
   const hrs = Math.floor(totalMin / 60);
   const mins = totalMin % 60;
@@ -360,7 +335,7 @@ function buildActionSteps(
 ): string[] {
   const steps: string[] = [];
   if (plan.trucks <= 0 && plan.shutIns.length === 0) {
-    steps.push(`Hold production as-is at ${facilityName} — accept shut-in risk if the tank hits 92%.`);
+    steps.push(`Hold production as-is at ${facilityName}. Accept shut-in risk if the tank hits 92%.`);
     steps.push(`Monitor tank level until pump repair (~${repairH}h).`);
     steps.push('No truck dispatch. Re-open wells after repair clears.');
     return steps;
@@ -377,7 +352,7 @@ function buildActionSteps(
       .join(', ');
     steps.push(`Shut in early: ${wells}.`);
   } else {
-    steps.push('Keep wells online — trucks keep the tank under 92%.');
+    steps.push('Keep wells online. Trucks keep the tank under 92%.');
   }
   steps.push(`Hold the plan through repair (~${repairH}h), then resume normal pump-out.`);
   steps.push(`Expected cost ${fmt.money(plan.cost)} · peak tank ~${plan.peakPct.toFixed(0)}%.`);

@@ -3,16 +3,14 @@ import { useEffect, useState } from 'react';
 import emblem from '../assets/emblem.jpg';
 import topoTide from '../assets/night-tide/backgrounds/wireframe-tide-map.jpg';
 import { useStore } from '../state/store';
-import { fmt } from '../lib/model';
 import { SideRail } from './motion/SideRail';
 import { TideDock } from './TideDock';
 
 export function Layout() {
-  const { dataset, loading, analysis, liveNow } = useStore();
+  const { dataset, loading, analysis } = useStore();
   /** Map-first: rail closed until operator opens it. */
   const [railOpen, setRailOpen] = useState(false);
   const location = useLocation();
-  const t0 = dataset?.telemetry.ts[0] ?? 0;
   const nFail = analysis?.orderedFailures.length ?? 0;
   const nOther = (analysis?.ongoing.length ?? 0) - nFail;
 
@@ -54,11 +52,6 @@ export function Layout() {
 
       <SideRail
         alertCount={nFail + nOther}
-        systems={dataset?.network.systems.length}
-        facilities={dataset?.network.systems.reduce((n, s) => n + s.facilities.length, 0)}
-        readings={dataset?.telemetry.ts.length}
-        sensors={dataset?.telemetry.series.size}
-        rangeLabel={dataset ? `${fmt.date(t0)} → ${fmt.date(liveNow)}` : undefined}
         open={railOpen}
         onOpenChange={setRailOpen}
       />

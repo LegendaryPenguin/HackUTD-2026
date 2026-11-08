@@ -32,7 +32,7 @@ function storyFor(m: DriveMission) {
     eyebrow: 'Story time',
     title: `Dispatch · ${m.tankLabel}`,
     paras: [
-      `${when}. Avon Night Tide. The best plan sends water trucks, not wait and hope.${level}`,
+      `${when}. The best plan sends water trucks, not wait and hope.${level}`,
       `${m.planLabel}. You start at the yard. Hit every pad in order: ${pads}. If you miss the clock, the tank trips.`,
     ],
   };
@@ -269,7 +269,7 @@ export default function Drive() {
       {flow === 'run' && lesson && (
         <div className="drive-lesson" role="dialog" aria-label="Lesson">
           <div className={`drive-lesson-card tone-${lesson.tone}`}>
-            <p className="drive-eyebrow">Night Tide radio</p>
+            <p className="drive-eyebrow">Field radio</p>
             <h2>{lesson.title}</h2>
             <p>{lesson.body}</p>
             <button type="button" className="btn primary" onClick={() => setLesson(null)}>
@@ -327,7 +327,7 @@ export default function Drive() {
                   Plan
                 </Link>
               </div>
-              <p className="drive-eyebrow">Night Tide · water truck</p>
+              <p className="drive-eyebrow">Water truck haul</p>
               <h1>When trucks were the call.</h1>
               <p className="drive-lead">
               {truckMissions.length > 0

@@ -23,7 +23,7 @@ export function buildCoachSteps(mission: DriveMission): CoachStep[] {
       id: 'brief',
       eyebrow: 'Coach · 1 / 5',
       title: 'Tonight you haul water.',
-      body: `${mission.tankLabel} needs a truck from the yard. This lesson stops after each move — try it, then we unlock the next tip.`,
+      body: `${mission.tankLabel} needs a truck from the yard. This lesson stops after each move. Try it, then we unlock the next tip.`,
       mode: 'continue',
       allow: {},
       freeze: true,
@@ -33,7 +33,7 @@ export function buildCoachSteps(mission: DriveMission): CoachStep[] {
       id: 'throttle',
       eyebrow: 'Coach · 2 / 5',
       title: 'Roll forward.',
-      body: 'Hold W (or ↑) until the truck starts moving. You’ll feel a little drag — that’s the loaded water trailer.',
+      body: 'Hold W (or ↑) until the truck starts moving. You’ll feel a little drag. That’s the loaded water trailer.',
       keys: ['W'],
       mode: 'practice',
       allow: { f: true },
@@ -45,7 +45,7 @@ export function buildCoachSteps(mission: DriveMission): CoachStep[] {
       id: 'steer',
       eyebrow: 'Coach · 3 / 5',
       title: 'Steer while you roll.',
-      body: 'Keep some speed, then tap A / D (or ← / →). Steering only bites when you’re moving — same as a real truck.',
+      body: 'Keep some speed, then tap A / D (or ← / →). Steering only bites when you’re moving, same as a real truck.',
       keys: ['A', 'D'],
       mode: 'practice',
       allow: { f: true, b: true, l: true, r: true },
@@ -57,7 +57,7 @@ export function buildCoachSteps(mission: DriveMission): CoachStep[] {
       id: 'aim',
       eyebrow: 'Coach · 4 / 5',
       title: 'Point at the glowing pad.',
-      body: 'Watch the amber needle on the right. Turn until it points up — that means the cab faces the tank.',
+      body: 'Watch the amber needle on the right. Turn until it points up. That means the cab faces the tank.',
       keys: ['A', 'D'],
       mode: 'practice',
       allow: { f: true, b: true, l: true, r: true },
@@ -68,7 +68,7 @@ export function buildCoachSteps(mission: DriveMission): CoachStep[] {
     {
       id: 'go',
       eyebrow: 'Coach · 5 / 5',
-      title: `${mission.difficulty.label} — go.`,
+      title: `${mission.difficulty.label}: go.`,
       body: `Clock is ${mission.difficulty.timeLimitSec}s. Drive into the aqua ring at ${mission.tankLabel}. Miss the window and the tank trips in the ops plan.`,
       mode: 'continue',
       allow: {},
@@ -130,7 +130,7 @@ export function DriveCoachPanel({ step, stepIndex, total, celebrating, onContinu
                 <ChevronRight size={16} />
               </button>
             ) : (
-              <p className="drive-coach-hint">Try it now — the panel advances when you succeed.</p>
+              <p className="drive-coach-hint">Try it now. The panel advances when you succeed.</p>
             )}
           </>
         )}

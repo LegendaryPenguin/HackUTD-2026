@@ -19,7 +19,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   SlidersHorizontal,
-  Timer,
   Truck,
   Users,
 } from 'lucide-react';
@@ -40,26 +39,17 @@ type RailLink = {
 /** Map-first ops rail — closed by default; opens with parallax on the field map. */
 export function SideRail({
   alertCount,
-  systems,
   open,
   onOpenChange,
 }: {
   alertCount: number;
-  systems?: number;
-  facilities?: number;
-  readings?: number;
-  sensors?: number;
-  rangeLabel?: string;
-  eventTicks?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const reduce = useReducedMotion();
   const mouseY = useMotionValue(-9999);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { analysis, datasets, dataset, load, loadFiles, loading, error, liveNow } = useStore();
-  const hottest = analysis?.orderedFailures[0];
-  const plan = hottest ? analysis?.systemPlans[hottest.facility.system]?.plans[hottest.event.id] : undefined;
+  const { datasets, dataset, load, loadFiles, loading, error, liveNow } = useStore();
 
   useEffect(() => {
     const shell = document.querySelector('.shell');
@@ -84,16 +74,13 @@ export function SideRail({
     { to: '/alerts', label: 'Alerts', short: 'Alerts', sub: 'Needs you', icon: Bell, badge: alertCount > 0 ? alertCount : undefined },
     { to: '/plan', label: 'Plan', short: 'Plan', sub: 'Cost paths', icon: SlidersHorizontal },
     { to: '/crew', label: 'Shifts', short: 'Shifts', sub: 'Handoff', icon: Users },
-    { to: '/drive', label: 'Drive', short: 'Drive', sub: 'Truck run', icon: Truck },
+    { to: '/trends', label: 'Trends', short: 'Trends', sub: 'Sensor tape', icon: Activity },
   ];
 
   const review: RailLink[] = [
-    { to: '/trends', label: 'Trends', short: 'Trends', sub: 'Sensor tape', icon: Activity },
+    { to: '/drive', label: 'Drive', short: 'Drive', sub: 'Truck run', icon: Truck },
     { to: '/tycoon', label: 'Oil Tycoon', short: 'Tycoon', sub: 'Field play', icon: Fuel },
   ];
-
-  const hot = alertCount > 0;
-  const htl = hottest && isFinite(hottest.hoursToLimit) ? hottest.hoursToLimit : null;
 
   return (
     <>
@@ -166,7 +153,7 @@ export function SideRail({
           </div>
 
           <div className="rail-nav">
-            <LayoutGroup id="avon-rail">
+            <LayoutGroup id="side-rail">
               <div className="rail-group">
                 <div className="rail-group-label">Operate</div>
                 {operate.map((item) => (
@@ -190,34 +177,6 @@ export function SideRail({
                 ))}
               </div>
             </LayoutGroup>
-          </div>
-
-          <div className={`rail-watch${hot ? ' is-hot' : ''}`}>
-            <div className="rail-watch-head">
-              <strong>{hottest ? 'Hottest clock' : 'All quiet'}</strong>
-              <span className={`rail-pulse ${hot ? 'is-alert' : ''}`} aria-hidden />
-            </div>
-
-            {hottest && htl != null ? (
-              <NavLink
-                to={`/?f=${hottest.facility.id}&flow=decide`}
-                className="rail-watch-hero"
-                onClick={() => onOpenChange(false)}
-              >
-                <div className="rail-watch-eta">
-                  <Timer size={15} strokeWidth={2} />
-                  <em>{fmt.dur(htl)}</em>
-                </div>
-                <div className="rail-watch-copy">
-                  <strong>{fmt.short(hottest.facility.id)}</strong>
-                  <span>{plan?.label ?? 'Open map plan'}</span>
-                </div>
-              </NavLink>
-            ) : (
-              <div className="rail-watch-idle">
-                {systems != null ? 'No filling tanks.' : 'Load a dataset.'}
-              </div>
-            )}
           </div>
         </div>
       </nav>

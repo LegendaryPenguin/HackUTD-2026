@@ -1,15 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Check, CheckCircle2, Clock, Fuel, MapPin, Send } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, Fuel, MapPin, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import hero from '../assets/hero.jpg';
 import { useStore } from '../state/store';
 import { CATEGORY_LABEL, fmt } from '../lib/model';
 import type { FailureContext } from '../lib/types';
 import { WaterJug3D } from '../components/WaterJug3D';
+import { OccurredStamp } from '../components/OccurredStamp';
 import { CategoryChip, Confidence, Countdown, fadeUp } from '../components/ui';
 import { TruckIcon } from '../components/Icons';
 import type { DispatchedPlan } from '../lib/dispatch';
 import { planStillActive } from '../lib/dispatch';
+import { PlanImpactCompare } from '../components/PlanImpactCompare';
+import { mapArt } from '../components/MapMarkers';
 import './alerts.css';
 
 export default function Alerts() {
@@ -58,7 +61,7 @@ export default function Alerts() {
       {failures.length + others.length === 0 && (
         <motion.div className="empty alerts-empty" {...fadeUp}>
           <img src={hero} alt="" />
-          <h2 className="page-title" style={{ fontSize: 18 }}>All quiet over Avon</h2>
+          <h2 className="page-title" style={{ fontSize: 18 }}>All quiet</h2>
           <p>
             Every tank is cycling normally, pumps are at rated flow and pipelines receive what they are sent.
             {recent.length > 0 && ` ${recent.length} problem${recent.length > 1 ? 's' : ''} resolved in the last 12 hours.`}
@@ -93,23 +96,28 @@ export default function Alerts() {
               {others.map((e) => (
                 <motion.article
                   key={e.id}
-                  className={`alert-inspect ${e.category === 'pipeline_leak' ? 'is-leak' : 'is-wear'}`}
+                  className={`alert-inspect alert-status-card ${e.category === 'pipeline_leak' ? 'is-leak' : 'is-wear'}`}
                   layout
                   {...fadeUp}
                 >
                   <Link to={`/?f=${encodeURIComponent(e.facility)}`} className="alert-inspect-hit" aria-label={`Open ${e.asset} on map`}>
-                    <div className="alert-inspect-top">
-                      <CategoryChip cat={e.category} />
-                      <span className="chip ghost">{e.system}</span>
-                      <Confidence value={e.confidence} />
-                      <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
-                        <Clock size={12} style={{ verticalAlign: -2 }} /> since ~{fmt.time(e.onset)}
-                      </span>
+                    <div className="alert-status-head">
+                      <div className="alert-status-icon">
+                        <img src={mapArt.tank} alt="" width={56} height={44} />
+                      </div>
+                      <div className="alert-status-titles">
+                        <div className="alert-fail-title">
+                          <h3>{fmt.short(e.facility)}</h3>
+                          <CategoryChip cat={e.category} />
+                          <span className="chip ghost">{e.system}</span>
+                          <Confidence value={e.confidence} />
+                        </div>
+                        <p className="facility">{e.asset}</p>
+                      </div>
+                      <OccurredStamp unix={e.onset} label="Started" />
                     </div>
-                    <h3>{e.asset}</h3>
-                    <p className="facility">{fmt.short(e.facility)}</p>
                     <ul>
-                      {e.evidence.map((x) => (
+                      {e.evidence.slice(0, 3).map((x) => (
                         <li key={x}>{x}</li>
                       ))}
                     </ul>
@@ -169,8 +177,8 @@ export default function Alerts() {
                       <CategoryChip cat={e.category} />
                     </td>
                     <td className="mono">{e.asset}</td>
-                    <td className="num">{fmt.dayTime(e.onset)}</td>
-                    <td className="num">{fmt.dayTime(e.end!)}</td>
+                    <td className="num">{fmt.time(e.onset)}</td>
+                    <td className="num">{fmt.time(e.end!)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <Link className="btn ghost sm" to={`/trends?f=${e.facility}&t=${e.onset}`}>
                         View
@@ -223,19 +231,15 @@ function FailureCard({
   return (
     <motion.article
       layout
-      className={`alert-fail${urgent ? ' is-urgent' : ''}${live ? ' is-live' : ''}`}
+      className={`alert-fail alert-status-card${urgent ? ' is-urgent' : ''}${live ? ' is-live' : ''}`}
       {...fadeUp}
     >
-      <div className="alert-fail-grid">
+      <div className="alert-status-head">
         <div className="alert-rank">{rank}</div>
-        <WaterJug3D
-          level={levelPct}
-          warn={limits.warning}
-          shut={limits.shutdown}
-          failed
-          label={ctx.facility.tank.id}
-        />
-        <div className="alert-fail-main">
+        <div className="alert-status-icon">
+          <img src={mapArt.tank} alt="" width={64} height={50} />
+        </div>
+        <div className="alert-status-titles">
           <div className="alert-fail-title">
             <h3>{fmt.short(ctx.facility.id)}</h3>
             <span className="chip ghost">{e.system}</span>
@@ -247,7 +251,7 @@ function FailureCard({
             )}
           </div>
           <p className="alert-fail-meta">
-            {e.asset} failed {fmt.time(e.onset)} · repair ends <b>{fmt.time(repairEnd)}</b>
+            {e.asset}
             {live ? (
               <>
                 {' '}
@@ -257,11 +261,34 @@ function FailureCard({
             ) : (
               <>
                 {' '}
-                ({fmt.durMin(ctx.horizonMin)} left) · filling {fmt.num(ctx.inflowBpd / 24, 0)} bbl/h from{' '}
-                {ctx.producingWells.length}/{ctx.facility.wells.length} wells · {fmt.money(ctx.revPerHour)}/h at stake
+                · filling {fmt.num(ctx.inflowBpd / 24, 0)} bbl/h from {ctx.producingWells.length}/
+                {ctx.facility.wells.length} wells · {fmt.money(ctx.revPerHour)}/h at stake
               </>
             )}
           </p>
+        </div>
+        <OccurredStamp unix={e.onset} label="Failed" />
+      </div>
+
+      <div className="alert-fail-grid alert-fail-grid--body">
+        <WaterJug3D
+          level={levelPct}
+          warn={limits.warning}
+          shut={limits.shutdown}
+          failed
+          label={ctx.facility.tank.id}
+        />
+        <div className="alert-fail-main">
+          <div className="alert-status-pulse">
+            <strong>
+              Tank {levelPct.toFixed(0)}% · repair ends {fmt.time(repairEnd)}
+            </strong>
+            <span>
+              {live
+                ? `Plan live · +${m} min`
+                : `${fmt.durMin(ctx.horizonMin)} left before shut-in if nothing changes`}
+            </span>
+          </div>
           <div className="alert-plan">
             <div className="alert-plan-card">
               <span>
@@ -287,7 +314,7 @@ function FailureCard({
                 </span>
               )}
               <span className="tipbox">
-                If nobody acts, all wells shut in at {ctx.tripsAtUnix ? fmt.time(ctx.tripsAtUnix) : '—'} until the repair at{' '}
+                If nobody acts, all wells shut in at {ctx.tripsAtUnix ? fmt.time(ctx.tripsAtUnix) : '-'} until the repair at{' '}
                 {fmt.time(repairEnd)}
               </span>
             </div>
@@ -295,9 +322,12 @@ function FailureCard({
               <span className="chip violet tip alert-share">
                 <TruckIcon size={12} /> shares {e.system}’s {sp.fleet} trucks
                 <span className="tipbox">
-                  Planned together with {shares.join(', ')} — total {fmt.money(sp.totalCost)}
+                  Planned together with {shares.join(', ')}, total {fmt.money(sp.totalCost)}
                 </span>
               </span>
+            )}
+            {!live && plan && (
+              <PlanImpactCompare ctx={ctx} ds={dataset} plan={plan} compact />
             )}
           </div>
         </div>

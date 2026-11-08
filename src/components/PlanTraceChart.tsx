@@ -1,4 +1,4 @@
-import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { FailureContext, PlanOption, Dataset } from '../lib/types';
 import { traceFor, truckArrivals } from '../lib/planner';
 import { fmt } from '../lib/model';
@@ -10,25 +10,23 @@ export function PlanTraceChart({
   ds: Dataset;
   plan: PlanOption;
   height?: number;
-  /** Tighter chrome for ReflectiveCard faces (no clipped labels). */
+  /** Tighter chrome for small faces. */
   compact?: boolean;
 }) {
   const nothing: PlanOption = {
     cost: ctx.doNothingCost, truckCost: 0, shutInCost: ctx.doNothingCost,
     trucks: 0, trips: 0, shutIns: [], tripAt: null, peakPct: 100, label: 'Do nothing',
   };
-  // recompute do-nothing trip via empty plan
   const nothingTrace = traceFor(ctx, ds, nothing);
   const planTrace = traceFor(ctx, ds, plan);
   const H = ctx.horizonMin;
   const warn = ds.network.defaults.tank_limits_pct.warning;
   const shut = ds.network.defaults.tank_limits_pct.shutdown;
-  const step = Math.max(1, Math.floor(H / 60));
+  const step = Math.max(1, Math.floor(H / 72));
   const data = [];
   for (let m = 0; m <= H; m += step) {
     data.push({
       m,
-      t: ctx.event.onset ? undefined : m,
       nothing: nothingTrace[Math.min(m, nothingTrace.length - 1)],
       plan: planTrace[Math.min(m, planTrace.length - 1)],
     });
@@ -42,59 +40,122 @@ export function PlanTraceChart({
   }
   const arrivals = truckArrivals(plan.trucks, plan.trips, ctx.facility.response_min, ctx.facility.cycle_min);
   const margin = compact
-    ? { top: 14, right: 40, left: 4, bottom: 4 }
-    : { top: 18, right: 40, left: 6, bottom: 8 };
+    ? { top: 14, right: 18, left: 0, bottom: 4 }
+    : { top: 18, right: 22, left: 2, bottom: 6 };
+  const yMax = Math.min(100, Math.max(shut + 4, ...data.map((d) => Math.max(d.nothing, d.plan))) + 6);
 
   return (
     <div className={`plan-trace-chart ${compact ? 'is-compact' : ''}`}>
-      <div className="plan-trace-title">Now to repair</div>
+      <div className="plan-trace-head">
+        <div className="plan-trace-title">Now to repair</div>
+        <div className="plan-trace-legend">
+          <span className="is-nothing"><i /> Do nothing</span>
+          <span className="is-plan"><i /> Recommended plan</span>
+          <span className="dim">{fmt.dur(H / 60)} to repair</span>
+        </div>
+      </div>
       <div className="plan-trace-plot" style={{ width: '100%', height }}>
         <ResponsiveContainer>
-          <LineChart data={data} margin={margin}>
+          <ComposedChart data={data} margin={margin}>
+            <defs>
+              <linearGradient id="traceNothingFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f08a9a" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#f08a9a" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="tracePlanFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#5ec8d8" stopOpacity={0.38} />
+                <stop offset="100%" stopColor="#5ec8d8" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
             <XAxis
               dataKey="m"
-              tickFormatter={(m) => (m === 0 ? 'Now' : m >= H ? '' : `+${Math.round(m / 60)}h`)}
-              stroke="var(--ink-3)"
+              tickFormatter={(m) => (m === 0 ? '0' : String(m))}
+              stroke="rgba(186, 210, 228, 0.45)"
               fontSize={10}
               tickMargin={6}
-              minTickGap={compact ? 28 : 18}
+              minTickGap={compact ? 36 : 28}
+              axisLine={false}
+              tickLine={false}
             />
-            <YAxis domain={[0, 100]} unit="%" stroke="var(--ink-3)" fontSize={10} width={36} tickCount={3} />
+            <YAxis
+              domain={[0, yMax]}
+              unit="%"
+              stroke="rgba(186, 210, 228, 0.45)"
+              fontSize={10}
+              width={34}
+              tickCount={4}
+              axisLine={false}
+              tickLine={false}
+            />
             <Tooltip
-              formatter={(v, name) => [`${Number(v ?? 0).toFixed(1)}%`, name === 'nothing' ? 'Do nothing' : 'This plan']}
+              formatter={(v, name) => [`${Number(v ?? 0).toFixed(1)}%`, name === 'nothing' ? 'Do nothing' : 'Recommended plan']}
               labelFormatter={(m) => `+${m} min`}
-              contentStyle={{ fontSize: 12 }}
+              contentStyle={{
+                fontSize: 12,
+                background: 'rgba(12, 24, 36, 0.96)',
+                border: '1px solid rgba(148, 184, 220, 0.28)',
+                borderRadius: 10,
+              }}
             />
-            <ReferenceLine y={warn} stroke="var(--amber)" strokeDasharray="4 4" />
+            <ReferenceLine y={warn} stroke="rgba(224,168,74,0.55)" strokeDasharray="4 4" />
             <ReferenceLine
               y={shut}
-              stroke="var(--coral)"
+              stroke="rgba(240,138,154,0.7)"
               strokeDasharray="4 4"
-              label={{ value: '92%', fill: 'var(--coral)', fontSize: 10, position: 'insideTopLeft', offset: 6 }}
+              label={{ value: '92%', fill: '#f08a9a', fontSize: 10, position: 'insideTopLeft', offset: 4 }}
             />
             {arrivals[0] != null && arrivals[0] < H && (
               <ReferenceLine
                 x={arrivals[0]}
-                stroke="var(--aqua)"
+                stroke="rgba(148, 184, 220, 0.55)"
                 strokeDasharray="3 3"
-                label={{ value: 'truck', fill: 'var(--aqua)', fontSize: 10, position: 'insideTop', offset: 8 }}
+                label={{ value: 'truck', fill: 'rgba(186,210,228,0.85)', fontSize: 10, position: 'insideTop', offset: 6 }}
               />
             )}
             <ReferenceLine
               x={H}
-              stroke="var(--ink-3)"
+              stroke="rgba(148, 184, 220, 0.4)"
               strokeDasharray="3 3"
-              label={{ value: 'repair', fill: 'var(--ink-2)', fontSize: 10, position: 'insideTopLeft', offset: 8 }}
+              label={{ value: 'repair', fill: 'rgba(186,210,228,0.75)', fontSize: 10, position: 'insideTopLeft', offset: 6 }}
             />
-            <Line type="monotone" dataKey="nothing" stroke="var(--coral)" strokeDasharray="6 4" dot={false} strokeWidth={2} isAnimationActive={false} />
-            <Line type="monotone" dataKey="plan" stroke="var(--aqua)" dot={false} strokeWidth={2.5} isAnimationActive={false} />
-          </LineChart>
+            <Area
+              type="monotone"
+              dataKey="nothing"
+              stroke="none"
+              fill="url(#traceNothingFill)"
+              isAnimationActive
+              animationDuration={900}
+            />
+            <Area
+              type="monotone"
+              dataKey="plan"
+              stroke="none"
+              fill="url(#tracePlanFill)"
+              isAnimationActive
+              animationDuration={1100}
+            />
+            <Line
+              type="monotone"
+              dataKey="nothing"
+              stroke="#f08a9a"
+              strokeDasharray="6 4"
+              dot={false}
+              strokeWidth={2.2}
+              isAnimationActive
+              animationDuration={900}
+            />
+            <Line
+              type="monotone"
+              dataKey="plan"
+              stroke="#5ec8d8"
+              dot={false}
+              strokeWidth={2.6}
+              isAnimationActive
+              animationDuration={1100}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
-      </div>
-      <div className="plan-trace-legend">
-        <span><i style={{ background: 'var(--coral)' }} /> Do nothing</span>
-        <span><i style={{ background: 'var(--aqua)' }} /> This plan</span>
-        <span className="dim">{fmt.dur(H / 60)} to repair</span>
       </div>
     </div>
   );

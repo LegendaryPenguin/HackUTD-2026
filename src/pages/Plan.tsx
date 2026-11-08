@@ -529,12 +529,12 @@ function OptionsTable({
               <td className="num">
                 {o.trucks
                   ? `${o.trucks} × ${o.trips} · first ${fmt.time(now + ctx.facility.response_min * 60)}`
-                  : '—'}
+                  : '-'}
               </td>
               <td className="num">
                 {o.shutIns.length
                   ? `${o.shutIns.map((s) => s.well.replace(/^S\d+_WELL_/, '')).join(', ')} @ ${fmt.time(now + o.shutIns[0].startMin * 60)}`
-                  : '—'}
+                  : '-'}
               </td>
               <td>
                 {o.tripAt == null ? (

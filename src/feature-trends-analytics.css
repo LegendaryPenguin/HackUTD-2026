@@ -583,23 +583,90 @@
 .crew-panel-actions {
   display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
 }
+.crew-alert-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.crew-alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(80% 60% at 0% 0%, rgba(0, 180, 216, 0.08), transparent 55%),
+    rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(132, 241, 180, 0.14);
+  transition: border-color 0.15s ease;
+}
+.crew-alert-card:hover {
+  border-color: rgba(72, 202, 228, 0.4);
+}
+.crew-alert-card.pump_failure {
+  background:
+    radial-gradient(80% 60% at 0% 0%, rgba(255, 49, 49, 0.1), transparent 55%),
+    rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 49, 49, 0.22);
+}
+.crew-alert-card.pipeline_leak {
+  border-color: rgba(244, 162, 97, 0.28);
+}
+.crew-alert-card.pump_degradation {
+  border-color: rgba(161, 0, 255, 0.28);
+}
+.crew-alert-card__icon {
+  flex-shrink: 0;
+  width: 44px;
+  display: grid;
+  place-items: center;
+}
+.crew-alert-card__icon img {
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(0, 180, 216, 0.25));
+}
+.crew-alert-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.crew-alert-card__title {
+  font-size: 13.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--ink-0);
+}
+.crew-alert-card__meta {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.crew-panel--alerts {
+  grid-column: 1 / -1;
+}
 
-/* Live coded handoff card (concept layout, real data) */
+/* Live coded handoff card (ops-only summary) */
 .handoff-card {
   width: 100%;
   border-radius: 20px;
   padding: 22px 20px 18px;
-  background: #0a121a;
+  background:
+    radial-gradient(90% 55% at 10% 0%, rgba(0, 180, 216, 0.12), transparent 50%),
+    radial-gradient(70% 45% at 90% 10%, rgba(132, 241, 180, 0.1), transparent 48%),
+    #0a121a;
   border: 1px solid rgba(120, 160, 180, 0.22);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65);
 }
-.handoff-brand {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 11px; letter-spacing: 0.08em;
-  color: var(--aqua); font-weight: 600; margin-bottom: 10px;
-}
-.handoff-brand img {
-  width: 20px; height: 20px; border-radius: 5px; object-fit: cover;
+.handoff-kicker {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mint);
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 .handoff-title {
   font-family: var(--font-display);
@@ -676,6 +743,20 @@
 }
 .handoff-list .dot.coral { background: #f08a9a; box-shadow: 0 0 0 3px rgba(240, 138, 154, 0.18); }
 .handoff-list .dot.amber { background: #e8c07a; box-shadow: 0 0 0 3px rgba(232, 192, 122, 0.18); }
+.handoff-list .dot.mint { background: #84f1b4; box-shadow: 0 0 0 3px rgba(132, 241, 180, 0.18); }
+.handoff-item-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.handoff-item-copy {
+  display: block;
+  font-size: 12.5px;
+  color: #9eb4c6;
+  line-height: 1.4;
+}
 .handoff-fleet {
   margin-top: 10px; font-size: 12.5px; color: #5ec8d8; font-weight: 600;
 }

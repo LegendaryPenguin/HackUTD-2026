@@ -55,14 +55,31 @@ export function valueAt(t: Telemetry, asset: string, metric: string, unix: numbe
 }
 
 export const fmt = {
-  time(unix: number): string {
-    const d = new Date(unix * 1000);
-    return d.toISOString().slice(11, 16);
+  /** HH:MM UTC only — use when the date is already shown next to it. */
+  clock(unix: number): string {
+    return new Date(unix * 1000).toISOString().slice(11, 16);
   },
-  dayTime(unix: number): string {
+  /** Short weekday · month day (e.g. FRI · OCT 10). */
+  occurredDay(unix: number): string {
     const d = new Date(unix * 1000);
-    const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
-    return `${day} ${d.toISOString().slice(5, 10).replace('-', '/')} ${d.toISOString().slice(11, 16)}`;
+    const day = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getUTCDay()];
+    const mon = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.getUTCMonth()];
+    return `${day} · ${mon} ${d.getUTCDate()}`;
+  },
+  /** Alias of clock — prefer pairing with occurredDay, or use time(). */
+  occurredTime(unix: number): string {
+    return fmt.clock(unix);
+  },
+  /**
+   * Default UI moment stamp — always date + clock.
+   * Never show a bare HH:MM alone in product copy.
+   */
+  time(unix: number): string {
+    return `${fmt.occurredDay(unix)} · ${fmt.clock(unix)}`;
+  },
+  /** Same contract as time() — kept for older call sites. */
+  dayTime(unix: number): string {
+    return fmt.time(unix);
   },
   date(unix: number): string {
     const d = new Date(unix * 1000);
@@ -77,7 +94,7 @@ export const fmt = {
     return '$' + Math.round(v).toLocaleString('en-US');
   },
   dur(hours: number): string {
-    if (!isFinite(hours)) return '—';
+    if (!isFinite(hours)) return '-';
     if (hours < 0) hours = 0;
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);

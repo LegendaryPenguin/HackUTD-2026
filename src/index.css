@@ -172,6 +172,54 @@ a:hover { color: var(--ink-0); }
 }
 .page-sub { color: var(--ink-2); margin: 6px 0 0; font-size: 13.5px; max-width: 52ch; }
 
+/* Shared occurred stamp — alerts, shifts, inspect cards */
+.occurred-stamp {
+  flex-shrink: 0;
+  min-width: 112px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-align: right;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(132, 241, 180, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.1;
+}
+.occurred-stamp__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.occurred-stamp__day {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--mint);
+}
+.occurred-stamp__time {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink-0);
+}
+.occurred-stamp__tz {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  font-weight: 650;
+}
+.occurred-stamp.is-compact {
+  min-width: 96px;
+  padding: 8px 10px;
+}
+.occurred-stamp.is-compact .occurred-stamp__time { font-size: 20px; }
+
 .brand { display: flex; align-items: center; gap: 11px; font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em; }
 .brand img {
   width: 36px; height: 36px; border-radius: 12px;
@@ -223,6 +271,16 @@ body:has(.shell.field-backdrop)::before {
   -webkit-backdrop-filter: none;
   border-right: 0;
   box-shadow: none;
+}
+/* Drive / Tycoon scenes wash out a clear rail — keep menu readable */
+.shell.drive-mode .side-rail,
+.shell.drive-mode.field-backdrop .side-rail,
+.shell.tycoon-mode .side-rail {
+  background: rgba(5, 8, 7, 0.94);
+  border-right: 1px solid rgba(132, 241, 180, 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.35);
 }
 .shell.field-backdrop .tide-ambient {
   display: none;
@@ -886,6 +944,11 @@ body:has(.shell.field-backdrop)::before {
     align-items: flex-end;
     padding-top: 8px;
   }
+  .avon-status__viz {
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+  }
+  .avon-status__spark--lg { height: 110px; }
   .shell.is-rail-open .triage-scrim,
   .shell.is-rail-open .calc-scrim {
     padding-left: 8px;
@@ -899,6 +962,38 @@ body:has(.shell.field-backdrop)::before {
   .cost-strip { grid-template-columns: 1fr; }
   .event-row { grid-template-columns: 1fr; }
   .grid.c2 { grid-template-columns: 1fr; }
+
+  /* Mobile compatibility — same features, tighter chrome */
+  .occurred-stamp {
+    min-width: 0;
+    width: 100%;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .alert-status-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .alert-fail-actions .btn,
+  .alert-inspect-actions .btn,
+  .crew-panel-actions .btn {
+    min-height: 40px;
+  }
+  .page {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+  .shell.drive-mode .main,
+  .shell.tycoon-mode .main {
+    padding-bottom: calc(var(--nav-bottom-h, 60px) + env(safe-area-inset-bottom, 0px));
+  }
+  .handoff-modal {
+    padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(12px, env(safe-area-inset-bottom, 0px));
+  }
+  .handoff-modal-panel {
+    width: min(100%, 420px);
+    max-height: min(90dvh, 900px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

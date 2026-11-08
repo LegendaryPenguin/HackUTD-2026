@@ -133,7 +133,7 @@ export function TimeDeck({
                     tone="primary"
                     className="is-deck"
                     formatValue={formatValue}
-                    labels={{ region: 'Week timeline — drag to set now' }}
+                    labels={{ region: 'Week timeline. Drag to set now' }}
                     onValueChange={onValueChange}
                     onTickJump={jump}
                   />

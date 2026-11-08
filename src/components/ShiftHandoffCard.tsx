@@ -1,13 +1,15 @@
 import { Check, ClipboardCopy, Download, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import emblem from '../assets/emblem.jpg';
 import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
 import type { HandoffReport } from '../lib/crew';
 import { handoffPlainText } from '../lib/crew';
 import { fmt } from '../lib/model';
 
-/** Live handoff card matching the Avon concept layout. */
+/**
+ * Ops handoff — tanks, pumps, trucks only.
+ * No invented staff / guard coverage (dataset does not include that).
+ */
 export function ShiftHandoffCard({ report }: { report: HandoffReport }) {
   const [copied, setCopied] = useState(false);
   const text = handoffPlainText(report);
@@ -35,45 +37,11 @@ export function ShiftHandoffCard({ report }: { report: HandoffReport }) {
   return (
     <article className="handoff-card" aria-label="Shift handoff report">
       <header className="handoff-head">
-        <div className="handoff-brand">
-          <img src={emblem} alt="" />
-          <span>Avon · Night Tide</span>
-        </div>
+        <div className="handoff-kicker">Field handoff</div>
         <h1 className="handoff-title">Shift handoff</h1>
         <p className="handoff-meta">{when} · {from} → {to}</p>
         <p className="handoff-lead">{report.lead}</p>
       </header>
-
-      <div className="handoff-sec-label">Relief</div>
-      <div className="handoff-relief">
-        <div className="handoff-col out">
-          <div className="handoff-col-label">Outgoing</div>
-          {report.outgoing.length === 0 && <p className="handoff-empty">Nobody listed</p>}
-          {report.outgoing.map((p, i) => (
-            <div key={`out-${p.name}-${p.detail}`} className="handoff-person">
-              <span className="handoff-av">{i + 1}</span>
-              <span className="handoff-person-text">
-                <strong>{p.name}</strong>
-                <span> · {p.detail}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="handoff-arrow" aria-hidden>→</div>
-        <div className="handoff-col in">
-          <div className="handoff-col-label">Incoming</div>
-          {report.incoming.length === 0 && <p className="handoff-empty">Nobody listed</p>}
-          {report.incoming.map((p, i) => (
-            <div key={`in-${p.name}-${p.detail}`} className="handoff-person">
-              <span className="handoff-av in">{i + 1}</span>
-              <span className="handoff-person-text">
-                <strong>{p.name}</strong>
-                <span> · {p.detail}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="handoff-sec-label">Do now</div>
       <section className="handoff-box">
@@ -84,7 +52,10 @@ export function ShiftHandoffCard({ report }: { report: HandoffReport }) {
             {report.doNow.map((d) => (
               <li key={d.eventId}>
                 <i className="dot coral" />
-                <div>{d.blurb}</div>
+                <div>
+                  <strong className="handoff-item-title">{d.label}</strong>
+                  <span className="handoff-item-copy">{d.blurb.replace(`${d.label} · `, '')}</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -110,23 +81,21 @@ export function ShiftHandoffCard({ report }: { report: HandoffReport }) {
         )}
       </section>
 
-      <div className="handoff-sec-label">Coverage</div>
-      <div className="handoff-coverage">
-        {report.coverage.length === 0 && (
-          <span className="handoff-pill ok">
-            <Check size={12} strokeWidth={3} /> All clear
-          </span>
+      <div className="handoff-sec-label">Last shift</div>
+      <section className="handoff-box">
+        {report.lastShift.length === 0 ? (
+          <p className="handoff-empty">No closed problems to note.</p>
+        ) : (
+          <ul className="handoff-list">
+            {report.lastShift.map((line) => (
+              <li key={line}>
+                <i className="dot mint" />
+                <div>{line}</div>
+              </li>
+            ))}
+          </ul>
         )}
-        {report.coverage.map((c) => (
-          <span
-            key={c.message}
-            className={`handoff-pill ${c.severity === 'ok' ? 'ok' : c.severity === 'bad' ? 'bad' : 'warn'}`}
-          >
-            {c.severity === 'ok' ? <Check size={12} strokeWidth={3} /> : null}
-            {c.message}
-          </span>
-        ))}
-      </div>
+      </section>
 
       <footer className="handoff-foot">
         <div className="handoff-share-row">
@@ -190,13 +159,5 @@ function cap(s: string) {
 }
 
 function friendlyWhen(unix: number): string {
-  const d = new Date(unix * 1000);
-  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
-  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()];
-  let h = d.getUTCHours();
-  const min = d.getUTCMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  const mm = String(min).padStart(2, '0');
-  return `${day} ${mon} ${d.getUTCDate()} · ${h}:${mm} ${ampm}`;
+  return `${fmt.time(unix)} UTC`;
 }
