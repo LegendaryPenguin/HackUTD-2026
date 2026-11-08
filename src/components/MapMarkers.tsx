@@ -4,9 +4,30 @@ import tankArt from '../assets/night-tide/icons/facility-tank.png';
 import wellArt from '../assets/night-tide/icons/well-pumpjack.png';
 import disposalArt from '../assets/night-tide/icons/disposal-intake.png';
 import truckArt from '../assets/night-tide/icons/tanker-truck.png';
+import systemS1 from '../assets/night-tide/icons/systems/system-S1.png';
+import systemS2 from '../assets/night-tide/icons/systems/system-S2.png';
+import systemS3 from '../assets/night-tide/icons/systems/system-S3.png';
+import systemS4 from '../assets/night-tide/icons/systems/system-S4.png';
+import systemS5 from '../assets/night-tide/icons/systems/system-S5.png';
 import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
 import basinBg from '../assets/night-tide/backgrounds/midnight-permian-basin.png';
 import desertBg from '../assets/night-tide/backgrounds/miniature-desert.png';
+import wireframeTide from '../assets/night-tide/backgrounds/wireframe-tide.jpg';
+
+/** System → thread station sticker (S1–S5 lettering is painted on the art). */
+export const systemThreads: Record<string, string> = {
+  S1: systemS1,
+  S2: systemS2,
+  S3: systemS3,
+  S4: systemS4,
+  S5: systemS5,
+};
+
+export function systemThreadArt(systemId: string): string {
+  const key = systemId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = key.match(/S[1-5]/);
+  return systemThreads[m?.[0] ?? key] ?? systemS1;
+}
 
 export const mapArt = {
   tank: tankArt,
@@ -14,12 +35,14 @@ export const mapArt = {
   pump: wellArt,
   disposal: disposalArt,
   truck: truckArt,
+  system: systemS1,
 } as const;
 
 export const mapBackgrounds = {
   moonlit: fieldBg,
   basin: basinBg,
   desert: desertBg,
+  wireframe: wireframeTide,
 } as const;
 
 export type MapArtKind = keyof typeof mapArt;
@@ -58,6 +81,14 @@ export function MapPin({
   const scale = active ? 1.12 : 1;
   const shadowColor = glow ?? '#0a1c28';
   const badgeR = Math.max(9 * inv, s * 0.18);
+  const system = kind === 'system' && badge ? systemThreads[badge.toUpperCase()] : undefined;
+  const src = system ?? mapArt[kind];
+  // System stickers already carry S1–S5 — skip the duplicate chip.
+  const showBadge = Boolean(badge) && !system;
+  const half = s / 2;
+  const isWide = Boolean(system);
+  // Soft shadow smears opaque letter art on system pins — keep those crisp.
+  const useShadow = !system;
   return (
     <g
       opacity={dim ? 0.32 : 1}
@@ -70,15 +101,17 @@ export function MapPin({
       className={active ? 'map-pin is-active' : 'map-pin'}
     >
       <defs>
-        <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow
-            dx="0"
-            dy={3 * inv}
-            stdDeviation={active || trouble ? 5 * inv : 2.8 * inv}
-            floodColor={trouble ? (glow ?? '#fb7185') : shadowColor}
-            floodOpacity={trouble ? 0.6 : active ? 0.5 : 0.4}
-          />
-        </filter>
+        {useShadow && (
+          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow
+              dx="0"
+              dy={3 * inv}
+              stdDeviation={active || trouble ? 5 * inv : 2.8 * inv}
+              floodColor={trouble ? (glow ?? '#fb7185') : shadowColor}
+              floodOpacity={trouble ? 0.6 : active ? 0.5 : 0.4}
+            />
+          </filter>
+        )}
       </defs>
       {(trouble || active) && glow && (
         <ellipse
@@ -92,16 +125,16 @@ export function MapPin({
         />
       )}
       <image
-        href={mapArt[kind]}
-        x={-s / 2}
-        y={-s / 2}
+        href={src}
+        x={-half}
+        y={isWide ? -half * 0.72 : -half}
         width={s}
-        height={s}
-        filter={`url(#${filterId})`}
+        height={isWide ? s * 0.72 : s}
+        filter={useShadow ? `url(#${filterId})` : undefined}
         preserveAspectRatio="xMidYMid meet"
         style={{ pointerEvents: 'none' }}
       />
-      {badge && (
+      {showBadge && (
         <g transform={`translate(${s * 0.34}, ${s * 0.32})`} style={{ pointerEvents: 'none' }}>
           <circle r={badgeR} fill="rgba(6, 22, 34, 0.92)" stroke={glow ?? 'var(--aqua)'} strokeWidth={1.6 * inv} />
           <text

@@ -5,7 +5,7 @@ import { ArrowLeft, Check, Play, Send } from 'lucide-react';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
 import type { PlanOption } from '../lib/types';
-import { facilityBadge, mapArt } from '../components/MapMarkers';
+import { systemThreadArt } from '../components/MapMarkers';
 import { PlanTraceChart } from '../components/PlanTraceChart';
 import { calcBreakdown } from '../lib/financials';
 import { representativePlans } from '../lib/scenarios';
@@ -61,12 +61,17 @@ export default function Plan() {
             <ArrowLeft size={13} /> Map
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src={mapArt.tank} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+            <img
+              src={systemThreadArt(ctx.facility.system)}
+              alt=""
+              width={56}
+              height={40}
+              style={{ objectFit: 'contain' }}
+            />
             <div>
               <h1 className="page-title" style={{ margin: 0 }}>{fmt.short(ctx.facility.id)} · Pump stopped</h1>
               <p className="page-sub" style={{ margin: 0 }}>Choose a plan.</p>
             </div>
-            <span className="chip aqua" style={{ fontWeight: 800 }}>{facilityBadge(ctx.facility.id)}</span>
           </div>
         </div>
       </div>

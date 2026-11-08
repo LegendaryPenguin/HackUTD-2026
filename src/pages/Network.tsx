@@ -8,7 +8,7 @@ import type { System } from '../lib/types';
 import { liveFacility, statusColor, statusLabel, type LiveFacility } from '../lib/status';
 import { applyDispatchOverlay, buildDispatchedPlan, dispatchForFacility } from '../lib/dispatch';
 import { failureContext } from '../lib/planner';
-import { MapPin, facilityBadge, mapArt, mapBackgrounds, wellBadge } from '../components/MapMarkers';
+import { MapPin, systemThreadArt, systemThreads, mapBackgrounds } from '../components/MapMarkers';
 import { FacilityTriageCard } from '../components/FacilityTriageCard';
 import { FinancialsBox } from '../components/FinancialsBox';
 
@@ -96,8 +96,17 @@ export default function Network() {
     y: H / 2 - ((minY + maxY) / 2) * fitK,
   };
   const selected = selectedId ? live.get(selectedId) ?? null : null;
-  // Concept triage popup (avon-triage-card-v4) is for pump failures only.
-  const showTriage = selected?.status === 'failure';
+  // Open Identify/Decide/Act whenever the selected station asset has an active pump failure.
+  const showTriage = Boolean(
+    selected
+    && selected.status === 'failure'
+    && analysis.orderedFailures.some((c) => c.facility.id === selected.f.id),
+  );
+
+  const stationFailureId = (systemId: string) => {
+    const hit = analysis.orderedFailures.find((c) => c.facility.system === systemId);
+    return hit?.facility.id ?? null;
+  };
 
   const counts = { failure: 0, leak: 0, wear: 0, warning: 0, normal: 0 } as Record<string, number>;
   for (const l of live.values()) counts[l.status]++;
@@ -110,7 +119,11 @@ export default function Network() {
 
   return (
     <div className="map-screen">
-      <div className="map-stage" style={{ backgroundImage: `url(${FIELD_BG})` }}>
+      <div className="map-stage">
+        <div className="map-topo" aria-hidden>
+          <div className="map-topo__photo" style={{ backgroundImage: `url(${FIELD_BG})` }} />
+          <div className="map-topo__wave" />
+        </div>
         <div className="map-mist" aria-hidden />
         <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" preserveAspectRatio="xMidYMid meet">
           <defs>
@@ -125,7 +138,20 @@ export default function Network() {
           </defs>
           <g style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, transformOrigin: '0 0', transformBox: 'view-box', transition: 'transform .75s cubic-bezier(.2,.8,.2,1)' }}>
             {dataset.network.systems.map((s) => (
-              <SystemLayer key={s.id} sys={s} proj={proj} live={live} hover={hover} setHover={setHover} selected={selectedId} onSelect={(id) => setParams({ f: id })} dim={!!sysFocus && sysFocus !== s.id} k={transform.k} focused={sysFocus === s.id} />
+              <SystemLayer
+                key={s.id}
+                sys={s}
+                proj={proj}
+                live={live}
+                hover={hover}
+                setHover={setHover}
+                selected={selectedId}
+                failureId={stationFailureId(s.id)}
+                onSelect={(id) => setParams({ f: id })}
+                dim={!!sysFocus && sysFocus !== s.id}
+                k={transform.k}
+                focused={sysFocus === s.id}
+              />
             ))}
           </g>
         </svg>
@@ -193,10 +219,7 @@ export default function Network() {
         )}
 
         <div className="map-float map-float-bl map-legend">
-          <LegendChip src={mapArt.tank} label="facility" />
-          <LegendChip src={mapArt.well} label="well" />
-          <LegendChip src={mapArt.disposal} label="disposal" />
-          <LegendChip src={mapArt.truck} label="truck yard" />
+          <LegendChip src={systemThreads.S1} label="station" />
           <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> flowing</span>
           <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leak</span>
         </div>
@@ -250,18 +273,32 @@ function PinTip({ title, sub, y }: { title: string; sub: string; y: number }) {
   );
 }
 
-function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim, k, focused }: {
+function SystemLayer({ sys, proj, live, hover, setHover, selected, failureId, onSelect, dim, k, focused }: {
   sys: System; proj: (lat: number, lon: number) => [number, number]; live: Map<string, LiveFacility>;
-  hover: string | null; setHover: (id: string | null) => void; selected: string | null; onSelect: (id: string) => void;
+  hover: string | null; setHover: (id: string | null) => void; selected: string | null;
+  failureId: string | null;
+  onSelect: (id: string) => void;
   dim: boolean; k: number; focused: boolean;
 }) {
   const [dx, dy] = proj(sys.disposal_site.lat, sys.disposal_site.lon);
-  const [yx, yy] = proj(sys.truck_yard[0], sys.truck_yard[1]);
   const inv = 1 / k;
-  const showWells = focused || k > 1.35;
   const disposalKey = `${sys.id}-disposal`;
-  const truckKey = `${sys.id}-trucks`;
   const hubSize = focused ? PIN.hubFocus : PIN.hub;
+  const failLive = failureId ? live.get(failureId) : undefined;
+  // Prefer an active pump failure over leak/wear so the triage card matches the red halo.
+  const hotFac = failLive
+    ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => l.status === 'failure')
+    ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => isCritical(l.status));
+  const stationTrouble = Boolean(failureId) || Boolean(hotFac && hotFac.status === 'failure');
+  // Red halo = pump failure only (matches Identify/Decide/Act). Leak/wear keep pipe color cues.
+  const stationWarn = stationTrouble;
+  const otherCritical = !stationTrouble && sys.facilities.some((f) => isCritical(live.get(f.id)?.status ?? 'normal'));
+  const stationStatus = stationTrouble
+    ? 'pump failed — click for triage'
+    : otherCritical && hotFac
+      ? statusLabel[hotFac.status]
+      : `${sys.disposal_site.lat.toFixed(3)}, ${sys.disposal_site.lon.toFixed(3)}`;
+
   return (
     <g opacity={dim ? 0.16 : 1} style={{ transition: 'opacity .3s' }}>
       {sys.facilities.map((f) => {
@@ -294,104 +331,49 @@ function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim
               strokeDasharray={leak ? `${6 * inv} ${5 * inv}` : flowing ? `${10 * inv} ${7 * inv}` : undefined}
               style={{
                 animation: leak || flowing ? `flow ${leak ? 0.85 : 1.5}s linear infinite` : undefined,
-                cursor: leak ? 'pointer' : undefined,
-                pointerEvents: leak ? 'stroke' : 'none',
+                pointerEvents: 'none',
               }}
               filter={leak || flowing ? 'url(#glow)' : undefined}
-              onClick={leak ? (e) => { e.stopPropagation(); onSelect(f.id); } : undefined}
-              onMouseEnter={leak ? () => setHover(f.id) : undefined}
-              onMouseLeave={leak ? () => setHover(null) : undefined}
             />
           </g>
         );
       })}
 
-      <g transform={`translate(${dx},${dy})`}
-        onMouseEnter={() => setHover(disposalKey)} onMouseLeave={() => setHover(null)}>
-        <MapPin kind="disposal" size={hubSize} inv={inv} badge={sys.id} active={hover === disposalKey} glow={hover === disposalKey ? 'var(--aqua)' : undefined} />
-        {(focused || hover === disposalKey) && (
-          <PinTip title={`${sys.id} disposal`} sub={`${sys.disposal_site.lat.toFixed(3)}, ${sys.disposal_site.lon.toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
+      {/* Single station pin — click opens the alert card, not wells / mining logos. */}
+      <g
+        transform={`translate(${dx},${dy})`}
+        onMouseEnter={() => setHover(disposalKey)}
+        onMouseLeave={() => setHover(null)}
+        style={{ cursor: 'pointer' }}
+        onClick={() => {
+          // Always open the failing facility when present so Identify/Decide/Act use real numbers.
+          const id = failureId
+            ?? sys.facilities.map((f) => live.get(f.id)!).find((l) => l.status === 'failure')?.f.id
+            ?? hotFac?.f.id
+            ?? sys.facilities[0]?.id;
+          if (id) onSelect(id);
+        }}
+      >
+        {stationWarn && (
+          <>
+            <circle r={(hubSize * 0.62) * inv} fill="var(--coral)" opacity={0.12} filter="url(#crit-glow)" />
+            <circle r={(hubSize * 0.52) * inv} fill="none" stroke="var(--coral)" strokeWidth={2.4 * inv} opacity={0.9} className="map-crit-ring" />
+            <circle r={(hubSize * 0.72) * inv} fill="none" stroke="var(--coral)" strokeWidth={1.6 * inv} opacity={0.55} className="map-crit-ring delay" />
+          </>
+        )}
+        <MapPin
+          kind="system"
+          size={hubSize * 1.25}
+          inv={inv}
+          badge={sys.id}
+          active={hover === disposalKey || focused || selected != null && sys.facilities.some((f) => f.id === selected)}
+          glow={stationWarn ? 'var(--coral)' : hover === disposalKey || focused ? 'var(--aqua)' : undefined}
+          trouble={stationTrouble}
+        />
+        {(hover === disposalKey || focused) && (
+          <PinTip title={`${sys.id} station`} sub={stationStatus} y={(hubSize * 0.55 + 6) * inv} />
         )}
       </g>
-
-      <g transform={`translate(${yx},${yy})`}
-        onMouseEnter={() => setHover(truckKey)} onMouseLeave={() => setHover(null)}>
-        <MapPin kind="truck" size={hubSize} inv={inv} badge={sys.id} active={hover === truckKey} glow={hover === truckKey ? 'var(--lagoon)' : undefined} />
-        {(focused || hover === truckKey) && (
-          <PinTip title={`${sys.id} trucks`} sub={`${sys.truck_yard[0].toFixed(3)}, ${sys.truck_yard[1].toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
-        )}
-      </g>
-
-      {sys.facilities.map((f) => {
-        const l = live.get(f.id)!;
-        const c = statusColor[l.status];
-        const [fx, fy] = proj(f.lat, f.lon);
-        const isSel = selected === f.id, isHov = hover === f.id;
-        const trouble = isCritical(l.status);
-        const pin = trouble || isSel || isHov ? PIN.facilityHot : focused ? PIN.facilityFocus : PIN.facility;
-        const showTip = focused || isHov || isSel || trouble || l.status === 'warning';
-        const nWells = f.wells.length;
-        return (
-          <g key={f.id} transform={`translate(${fx},${fy})`} style={{ cursor: 'pointer' }}
-            className={trouble ? 'map-crit' : undefined}
-            onMouseEnter={() => setHover(f.id)} onMouseLeave={() => setHover(null)} onClick={() => onSelect(f.id)}>
-            {trouble && (
-              <>
-                <circle r={(pin * 0.62) * inv} fill={c} opacity={0.12} filter="url(#crit-glow)" />
-                <circle
-                  r={(pin * 0.52) * inv}
-                  fill="none"
-                  stroke={c}
-                  strokeWidth={2.4 * inv}
-                  opacity={0.9}
-                  className="map-crit-ring"
-                />
-                <circle
-                  r={(pin * 0.72) * inv}
-                  fill="none"
-                  stroke={c}
-                  strokeWidth={1.6 * inv}
-                  opacity={0.55}
-                  className="map-crit-ring delay"
-                />
-              </>
-            )}
-            {showWells && f.wells.map((w, i) => {
-              const ang = (-Math.PI / 2) + (i * 2 * Math.PI) / nWells;
-              const rad = (pin * 0.72) * inv;
-              const wx = Math.cos(ang) * rad, wy = Math.sin(ang) * rad;
-              const on = l.wells.find((x) => x.id === w.id)?.status === 1;
-              const wKey = `${f.id}-${w.id}`;
-              return (
-                <g key={w.id} transform={`translate(${wx},${wy})`}
-                  onMouseEnter={(e) => { e.stopPropagation(); setHover(wKey); }}
-                  onMouseLeave={() => setHover(f.id)}>
-                  <MapPin kind="well" size={PIN.well} inv={inv} badge={wellBadge(w.id)} dim={!on} active={hover === wKey} />
-                  {hover === wKey && (
-                    <PinTip title={fmt.short(w.id)} sub={on ? 'producing' : 'shut in'} y={(PIN.well * 0.55 + 4) * inv} />
-                  )}
-                </g>
-              );
-            })}
-            <MapPin
-              kind="tank"
-              size={pin}
-              inv={inv}
-              badge={facilityBadge(f.id)}
-              glow={trouble || isHov || isSel || l.status === 'warning' ? c : undefined}
-              trouble={trouble}
-              active={trouble || isHov || isSel}
-            />
-            {showTip && (
-              <PinTip
-                title={fmt.short(f.id)}
-                sub={trouble || l.status === 'warning' ? statusLabel[l.status] : `${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}`}
-                y={(pin * 0.55 + 8) * inv}
-              />
-            )}
-          </g>
-        );
-      })}
     </g>
   );
 }
@@ -402,11 +384,16 @@ function HoverCard({ l }: { l: LiveFacility }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ position: 'relative' }}>
-          <img src={mapArt.tank} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
-          <span className="chip aqua" style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 10, padding: '1px 6px' }}>{facilityBadge(l.f.id)}</span>
+          <img
+            src={systemThreadArt(l.f.system)}
+            alt=""
+            width={56}
+            height={40}
+            style={{ objectFit: 'contain' }}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <b>{fmt.short(l.f.id)}</b>
+          <b>{l.f.system} station</b>
           <div className="dim" style={{ fontSize: 11 }}>{l.f.lat.toFixed(4)} · {l.f.lon.toFixed(4)}</div>
         </div>
         <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
