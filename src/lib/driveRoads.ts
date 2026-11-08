@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import type { DrivePoint, DriveRoad } from './driveMap';
 
-export const ROAD_HALF_WIDTH = 5.2;
+export const ROAD_HALF_WIDTH = 8.5;
 export const ROAD_WIDTH = ROAD_HALF_WIDTH * 2;
 
 export type RoadRibbon = {

@@ -103,13 +103,23 @@ function Ground() {
   const { albedo, bump } = useMemo(() => makeSandTextures(), []);
   return (
     <group>
+      {/* Off-lease world: cool moon meadow beyond the ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, 0]} receiveShadow>
+        <circleGeometry args={[55, 72]} />
+        <meshStandardMaterial color="#5c6fb5" roughness={0.92} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+        <ringGeometry args={[16.4, 42, 72]} />
+        <meshStandardMaterial color="#6f8fd4" roughness={0.88} />
+      </mesh>
+      {/* Permian sand lease inside the teal fence */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[42, 64]} />
+        <circleGeometry args={[15.35, 64]} />
         <meshStandardMaterial map={albedo} bumpMap={bump} bumpScale={0.08} roughness={0.94} color="#f0d4a5" />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <ringGeometry args={[15.2, 16.2, 64]} />
-        <meshStandardMaterial color="#3fc3cc" roughness={0.55} transparent opacity={0.5} />
+        <meshStandardMaterial color="#3fc3cc" roughness={0.55} transparent opacity={0.55} />
       </mesh>
     </group>
   );
@@ -494,27 +504,67 @@ function WaterTanks({ fill, critical }: { fill: number; critical: boolean }) {
   );
 }
 
+function Mushroom({ x, z, scale = 1, hue = 0 }: { x: number; z: number; scale?: number; hue?: number }) {
+  const cap = hue === 0 ? '#ff7eb6' : hue === 1 ? '#b388ff' : '#7dcea0';
+  return (
+    <group position={[x, 0, z]} scale={scale}>
+      <mesh position={[0, 0.55, 0]} castShadow>
+        <cylinderGeometry args={[0.12, 0.18, 1.1, 8]} />
+        <meshStandardMaterial color="#f4e8d8" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 1.15, 0]} castShadow>
+        <sphereGeometry args={[0.55, 12, 10]} />
+        <meshStandardMaterial color={cap} emissive={cap} emissiveIntensity={0.22} roughness={0.45} />
+      </mesh>
+    </group>
+  );
+}
+
+function Crystal({ x, z, h = 2.4, color = '#a8e6ff' }: { x: number; z: number; h?: number; color?: string }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, h / 2, 0]} rotation={[0.15, 0.4, 0.1]} castShadow>
+        <coneGeometry args={[0.35, h, 5]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.35} transparent opacity={0.85} roughness={0.2} metalness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
 function Decor() {
+  const outerBits = useMemo(() => {
+    const items: { kind: 'mush' | 'crystal' | 'blob'; x: number; z: number; s: number; h: number }[] = [];
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      const r = 18 + (i % 5) * 2.4 + (i % 3) * 0.6;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      items.push({
+        kind: i % 3 === 0 ? 'crystal' : i % 3 === 1 ? 'mush' : 'blob',
+        x,
+        z,
+        s: 0.7 + (i % 4) * 0.25,
+        h: i % 3,
+      });
+    }
+    return items;
+  }, []);
+
   return (
     <group>
-      <Palm x={-12} z={8} />
-      <Palm x={-14} z={3} lean={-0.1} h={5} />
-      <Palm x={12} z={9} lean={0.14} h={4.6} />
-      <Palm x={14} z={-2} lean={-0.06} />
-      <Palm x={-11} z={-9} lean={0.1} h={4.8} />
-      <Palm x={10} z={-10} lean={-0.12} />
+      {/* A few palms just inside the lease for Permian flavor */}
+      <Palm x={-10} z={8} />
+      <Palm x={11} z={7} lean={0.12} h={4.4} />
+      <Palm x={-9} z={-9} lean={0.08} h={4.6} />
       {[
-        [-6, 10], [3, 11], [11, 5], [-13, -4], [6, -12], [-3, -11],
+        [-6, 10], [3, 11], [11, 5], [-4, -11],
       ].map(([x, z], i) => (
         <mesh key={i} position={[x, 0.35, z]} castShadow scale={[1 + (i % 3) * 0.2, 0.7, 1]}>
           <sphereGeometry args={[0.9, 14, 12]} />
           <meshStandardMaterial color="#c9b089" roughness={1} />
         </mesh>
       ))}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 22]}>
-        <circleGeometry args={[18, 48]} />
-        <meshStandardMaterial color="#3fc3cc" transparent opacity={0.55} roughness={0.2} />
-      </mesh>
+      {/* Tiny lease shack stays inside */}
       <group position={[7.5, 0, 7]}>
         <mesh position={[0, 0.9, 0]} castShadow>
           <boxGeometry args={[2.4, 1.8, 2.4]} />
@@ -524,6 +574,34 @@ function Decor() {
           <coneGeometry args={[1.9, 1.1, 4]} />
           <meshStandardMaterial color="#ffe566" />
         </mesh>
+      </group>
+
+      {/* Completely different off-lease biome: glowing mushrooms + crystals */}
+      {outerBits.map((b, i) =>
+        b.kind === 'mush' ? (
+          <Mushroom key={i} x={b.x} z={b.z} scale={b.s} hue={b.h} />
+        ) : b.kind === 'crystal' ? (
+          <Crystal key={i} x={b.x} z={b.z} h={1.6 + b.s} color={b.h === 0 ? '#a8e6ff' : '#d4a5ff'} />
+        ) : (
+          <mesh key={i} position={[b.x, 0.4, b.z]} castShadow scale={[b.s, 0.55, b.s]}>
+            <sphereGeometry args={[1.1, 12, 10]} />
+            <meshStandardMaterial color="#8fa8e8" roughness={0.85} />
+          </mesh>
+        ),
+      )}
+      {/* Joke billboard just outside the fence */}
+      <group position={[0, 0, 18.5]}>
+        <mesh position={[0, 1.6, 0]} castShadow>
+          <boxGeometry args={[0.12, 3.2, 0.12]} />
+          <meshStandardMaterial color="#dfe6ff" />
+        </mesh>
+        <mesh position={[0, 3.4, 0]} castShadow>
+          <boxGeometry args={[3.4, 1.2, 0.15]} />
+          <meshStandardMaterial color="#fff8ec" />
+        </mesh>
+        <Html position={[0, 3.4, 0.12]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
+          <div className="ty-offlease-sign">Off lease · moon meadow HOA</div>
+        </Html>
       </group>
     </group>
   );

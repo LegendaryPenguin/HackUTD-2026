@@ -1699,6 +1699,51 @@ a:hover { color: var(--lagoon-2); }
   gap: 10px;
   margin-top: 20px;
 }
+.drive-lesson {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 10, 16, 0.45);
+  backdrop-filter: blur(4px);
+}
+.drive-lesson-card {
+  width: min(420px, 100%);
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 200, 216, 0.3);
+  background:
+    radial-gradient(90% 70% at 10% 0%, rgba(94, 200, 216, 0.14), transparent 55%),
+    rgba(8, 18, 26, 0.94);
+  box-shadow: var(--shadow);
+}
+.drive-lesson-card.tone-mint {
+  border-color: rgba(125, 206, 160, 0.35);
+  background:
+    radial-gradient(90% 70% at 10% 0%, rgba(125, 206, 160, 0.16), transparent 55%),
+    rgba(8, 18, 26, 0.94);
+}
+.drive-lesson-card.tone-amber {
+  border-color: rgba(232, 192, 122, 0.35);
+}
+.drive-lesson-card.tone-coral {
+  border-color: rgba(240, 138, 154, 0.4);
+}
+.drive-lesson-card h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.drive-lesson-card > p {
+  margin: 0 0 16px;
+  color: var(--ink-1);
+  font-size: 14px;
+  line-height: 1.55;
+}
 .drive-mission-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -2343,6 +2388,18 @@ a:hover { color: var(--lagoon-2); }
   height: 100% !important;
 }
 
+.ty-offlease-sign {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255, 248, 236, 0.95);
+  border: 2px solid rgba(111, 143, 212, 0.55);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  color: #3a2418;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(58, 36, 24, 0.18);
+}
 .ty-pad-tag {
   font-family: var(--font-display);
   font-weight: 800;

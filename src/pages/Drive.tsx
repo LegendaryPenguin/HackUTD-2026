@@ -6,8 +6,8 @@ import {
 import { useStore } from '../state/store';
 import { buildFieldMap } from '../lib/driveMap';
 import {
-  gradeRun, practiceMissions, truckRecommendedMissions,
-  type DriveMission, type GradeResult, type RunStats,
+  approachLesson, gradeRun, lessonAfterPad, offRoadLesson, openingLesson, practiceMissions, truckRecommendedMissions,
+  type DriveLesson, type DriveMission, type GradeResult, type RunStats,
 } from '../lib/driveMission';
 import { fmt } from '../lib/model';
 import { DriveScene, type DriveTelemetry } from '../components/drive/DriveScene';
@@ -15,25 +15,25 @@ import { DriveScene, type DriveTelemetry } from '../components/drive/DriveScene'
 type Flow = 'select' | 'story' | 'run' | 'finish';
 
 function storyFor(m: DriveMission) {
-  const pads = m.stops.map((s) => s.label).join(' → ');
+  const pads = m.stops.map((s) => s.label).join(', then ');
   if (m.kind === 'practice') {
     return {
       eyebrow: 'Story time',
       title: 'Night drill on the lease',
       paras: [
-        'Console is quiet. No real trip call — just you, a loaded water truck, and the ring road under moonlight.',
-        `Run the pad tour (${pads}) like it’s live. Stay on asphalt. Treat every tank like it’s climbing.`,
+        'Console is quiet. No real trip call. Just you, a loaded water truck, and the ring road.',
+        `Drive the pads in order: ${pads}. Stay on asphalt. Treat every tank like it is filling.`,
       ],
     };
   }
   const when = fmt.dayTime(m.atUnix);
-  const level = m.levelPct != null ? ` Tank sitting ~${fmt.pct(m.levelPct)}.` : '';
+  const level = m.levelPct != null ? ` The tank is around ${fmt.pct(m.levelPct)}.` : '';
   return {
     eyebrow: 'Story time',
     title: `Dispatch · ${m.tankLabel}`,
     paras: [
-      `${when}. Avon Night Tide. The recommended plan rolls water trucks — not wait-and-hope.${level}`,
-      `${m.planLabel}. You’re on the yard. Hit every delivery pad in order: ${pads}. Miss the clock and the tank trips.`,
+      `${when}. Avon Night Tide. The best plan sends water trucks, not wait and hope.${level}`,
+      `${m.planLabel}. You start at the yard. Hit every pad in order: ${pads}. If you miss the clock, the tank trips.`,
     ],
   };
 }
@@ -76,26 +76,44 @@ export default function Drive() {
   const [telem, setTelem] = useState<DriveTelemetry>(emptyTelem);
   const [padFlash, setPadFlash] = useState<string | null>(null);
   const [grade, setGrade] = useState<GradeResult | null>(null);
+  const [lesson, setLesson] = useState<DriveLesson | null>(null);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef(0);
   const flowRef = useRef<Flow>('select');
   const roadSamples = useRef({ on: 0, total: 0 });
   const peakSpeed = useRef(0);
   const prevHits = useRef(0);
+  const seenLessons = useRef(new Set<string>());
+  const pauseAccum = useRef(0);
+  const lessonOpenRef = useRef(false);
   flowRef.current = flow;
+  lessonOpenRef.current = !!lesson;
 
   useEffect(() => {
     if (flow !== 'run') {
       cancelAnimationFrame(rafRef.current);
       return;
     }
-    const tick = () => {
-      if (startRef.current != null) setElapsed((performance.now() - startRef.current) / 1000);
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (lessonOpenRef.current) {
+        pauseAccum.current += dt * 1000;
+      } else if (startRef.current != null) {
+        setElapsed((now - startRef.current - pauseAccum.current) / 1000);
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
   }, [flow]);
+
+  const showLesson = (L: DriveLesson) => {
+    if (seenLessons.current.has(L.id)) return;
+    seenLessons.current.add(L.id);
+    setLesson(L);
+  };
 
   const pickMission = (m: DriveMission) => {
     setMission(m);
@@ -103,8 +121,10 @@ export default function Drive() {
     setElapsed(0);
     setGrade(null);
     setPadFlash(null);
+    setLesson(null);
     setTelem(emptyTelem);
     startRef.current = null;
+    seenLessons.current = new Set();
     setResetKey((k) => k + 1);
   };
 
@@ -119,29 +139,47 @@ export default function Drive() {
     roadSamples.current = { on: 0, total: 0 };
     peakSpeed.current = 0;
     prevHits.current = 0;
+    pauseAccum.current = 0;
+    seenLessons.current = new Set();
     startRef.current = performance.now();
     setResetKey((k) => k + 1);
+    setLesson(openingLesson(m));
+    seenLessons.current.add('open');
   };
 
   const onTelemetry = (t: DriveTelemetry) => {
     setTelem(t);
-    if (t.padHits.length > prevHits.current) {
+    if (t.padHits.length > prevHits.current && mission) {
+      const idx = prevHits.current;
       prevHits.current = t.padHits.length;
       const last = t.padHits[t.padHits.length - 1];
-      const stop = mission?.stops.find((s) => s.id === last);
+      const stop = mission.stops.find((s) => s.id === last);
       setPadFlash(stop ? `Delivered · ${stop.label}` : 'Pad delivered');
       window.setTimeout(() => setPadFlash(null), 1200);
+      // Teach between pads; last pad goes straight to finish grade
+      if (stop && t.padHits.length < mission.stops.length) {
+        showLesson(lessonAfterPad(mission, idx, stop));
+      }
     }
     peakSpeed.current = Math.max(peakSpeed.current, t.speed);
-    if (flowRef.current === 'run') {
+    if (flowRef.current === 'run' && !lessonOpenRef.current && mission) {
       roadSamples.current.total += 1;
       if (t.onRoad) roadSamples.current.on += 1;
+      else showLesson(offRoadLesson());
+
+      const next = mission.stops.find((s) => !t.padHits.includes(s.id));
+      if (next && t.dist > 0 && t.dist < 28) {
+        showLesson(approachLesson(next));
+      }
     }
   };
 
   const onArrive = () => {
     if (flowRef.current !== 'run' || !mission) return;
-    const sec = startRef.current != null ? (performance.now() - startRef.current) / 1000 : elapsed;
+    setLesson(null);
+    const sec = startRef.current != null
+      ? (performance.now() - startRef.current - pauseAccum.current) / 1000
+      : elapsed;
     setElapsed(sec);
     const onRoadPct = roadSamples.current.total
       ? roadSamples.current.on / roadSamples.current.total
@@ -176,6 +214,7 @@ export default function Drive() {
     setMission(null);
     setElapsed(0);
     setGrade(null);
+    setLesson(null);
     startRef.current = null;
   };
 
@@ -223,7 +262,21 @@ export default function Drive() {
           onArrive={onArrive}
           onTelemetry={onTelemetry}
           resetKey={resetKey}
+          lessonOpen={!!lesson}
         />
+      )}
+
+      {flow === 'run' && lesson && (
+        <div className="drive-lesson" role="dialog" aria-label="Lesson">
+          <div className={`drive-lesson-card tone-${lesson.tone}`}>
+            <p className="drive-eyebrow">Night Tide radio</p>
+            <h2>{lesson.title}</h2>
+            <p>{lesson.body}</p>
+            <button type="button" className="btn primary" onClick={() => setLesson(null)}>
+              Got it. Keep driving
+            </button>
+          </div>
+        </div>
       )}
 
       {flow === 'story' && mission && (() => {
@@ -277,9 +330,9 @@ export default function Drive() {
               <p className="drive-eyebrow">Night Tide · water truck</p>
               <h1>When trucks were the call.</h1>
               <p className="drive-lead">
-                {truckMissions.length > 0
-                  ? 'Each card is a moment the recommended plan sent water trucks. Pick one and haul the tank pads.'
-                  : 'No truck-recommended failures in this window — run a practice pad loop across the field.'}
+              {truckMissions.length > 0
+                ? 'Each card is a moment the recommended plan sent water trucks. Pick one and haul the tank pads.'
+                : 'No truck calls in this window. Run a practice pad loop across the field.'}
               </p>
             </header>
 

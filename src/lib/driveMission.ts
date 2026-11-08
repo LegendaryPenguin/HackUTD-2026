@@ -19,7 +19,6 @@ export type DriveDifficulty = {
   fogFar: number;
 };
 
-/** One tank pad the water truck must deliver to. */
 export type DeliveryStop = {
   id: string;
   facilityId: string;
@@ -46,6 +45,14 @@ export type DriveMission = {
   responseMin?: number;
 };
 
+/** Mid-haul teaching beat — Tycoon-style popup lessons. */
+export type DriveLesson = {
+  id: string;
+  title: string;
+  body: string;
+  tone: 'aqua' | 'amber' | 'mint' | 'coral';
+};
+
 const TIER_COPY: Record<DiffTier, Pick<DriveDifficulty, 'tier' | 'label' | 'tone'>> = {
   standard: { tier: 'standard', label: 'Haul', tone: 'aqua' },
   urgent: { tier: 'urgent', label: 'Urgent haul', tone: 'amber' },
@@ -64,17 +71,18 @@ function tierFrom(hoursToLimit: number, levelPct: number, warn: number, shut: nu
 }
 
 function physicsFor(tier: DiffTier, stops: number, responseMin: number): Omit<DriveDifficulty, 'tier' | 'label' | 'tone'> {
-  const base = tier === 'critical' ? 110 : tier === 'urgent' ? 140 : 170;
-  const perStop = 42;
+  // Finishable clocks — short tours, generous arrive radius
+  const base = tier === 'critical' ? 150 : tier === 'urgent' ? 170 : 190;
+  const perStop = 55;
   const far = Math.max(0, Math.min(1, (responseMin - 20) / 80));
   return {
-    timeLimitSec: Math.round(base + stops * perStop + far * 30),
-    maxSpeed: tier === 'critical' ? 23 : tier === 'urgent' ? 25 : 27,
-    accel: tier === 'critical' ? 14 : 16,
-    steer: 2.1,
-    arriveR: 7.2,
-    fogNear: 48,
-    fogFar: 280,
+    timeLimitSec: Math.round(base + stops * perStop + far * 20),
+    maxSpeed: tier === 'critical' ? 22 : tier === 'urgent' ? 24 : 26,
+    accel: 18,
+    steer: 2.4,
+    arriveR: 11.5,
+    fogNear: 55,
+    fogFar: 300,
   };
 }
 
@@ -84,13 +92,13 @@ function recPlan(analysis: Analysis, ctx: FailureContext): PlanOption | null {
   return sp.plans[ctx.event.id] ?? null;
 }
 
-/** Nearest-neighbor tour from yard so pads are spread and the route isn't a straight line. */
+/** Short finishable tour: primary tank first, then 1–2 nearby pads. */
 function tourStops(
   primary: FailureContext,
   truckFailures: FailureContext[],
   allTankPoints: DrivePoint[],
   yard: DrivePoint | undefined,
-  minStops: number,
+  maxStops: number,
 ): DeliveryStop[] {
   const tanks = allTankPoints.filter((p) => p.kind === 'tank');
   const byId = new Map(tanks.map((t) => [t.id, t]));
@@ -104,29 +112,27 @@ function tourStops(
   for (const c of truckFailures) {
     if (c.event.id === primary.event.id) continue;
     pushMust(c.facility.id);
+    if (must.length >= maxStops) break;
   }
 
-  // Fill with farthest tanks first so the loop covers the field
-  const origin = yard ?? byId.get(primary.facility.id);
+  const origin = byId.get(primary.facility.id) ?? yard;
   const extras = tanks
     .filter((t) => !must.includes(t.id))
     .map((t) => ({
       id: t.id,
       d: origin ? Math.hypot(t.x - origin.x, t.z - origin.z) : 0,
     }))
-    .sort((a, b) => b.d - a.d);
+    .sort((a, b) => a.d - b.d); // nearest extras — finishable hops
 
-  const want = Math.min(Math.max(minStops, 4), Math.max(must.length, tanks.length));
   const pool = [...must];
   for (const e of extras) {
-    if (pool.length >= want) break;
+    if (pool.length >= maxStops) break;
     pool.push(e.id);
   }
 
-  // Order: start at primary, then NN around the field
   const remaining = new Set(pool);
   const ordered: string[] = [];
-  let cur = byId.get(primary.facility.id) ?? (origin ? { x: origin.x, z: origin.z, id: '' } : null);
+  let cur = byId.get(primary.facility.id) ?? origin ?? null;
   if (remaining.has(primary.facility.id)) {
     ordered.push(primary.facility.id);
     remaining.delete(primary.facility.id);
@@ -136,11 +142,9 @@ function tourStops(
     let bestD = Infinity;
     for (const id of remaining) {
       const t = byId.get(id)!;
-      const d = cur ? Math.hypot(t.x - cur.x, t.z - cur.z) : 0;
-      // Prefer mid-distance hops so we don't collapse to a micro-cluster
-      const score = Math.abs(d - 35) + d * 0.15;
-      if (score < bestD) {
-        bestD = score;
+      const d = cur ? Math.hypot(t.x - (cur as DrivePoint).x, t.z - (cur as DrivePoint).z) : 0;
+      if (d < bestD) {
+        bestD = d;
         bestId = id;
       }
     }
@@ -161,10 +165,6 @@ function tourStops(
   });
 }
 
-/**
- * Haul moments where the recommended plan actually sends water trucks.
- * Cards are stamped with failure onset time.
- */
 export function truckRecommendedMissions(
   ds: Dataset,
   analysis: Analysis,
@@ -182,9 +182,8 @@ export function truckRecommendedMissions(
     const f = ctx.facility;
     const tier = tierFrom(ctx.hoursToLimit, ctx.levelPct, limits.warning, limits.shutdown);
     const meta = TIER_COPY[tier];
-    const trips = Math.max(1, plan.trips);
-    const minStops = Math.min(7, Math.max(4, plan.trucks + trips + 1));
-    const stops = tourStops(ctx, truckFailures, allTankPoints, yard, minStops);
+    const maxStops = Math.min(3, Math.max(2, plan.trucks));
+    const stops = tourStops(ctx, truckFailures, allTankPoints, yard, maxStops);
     const phys = physicsFor(tier, stops.length, f.response_min);
     const fam = familyOf(plan);
 
@@ -218,14 +217,14 @@ export function practiceMissions(allTankPoints: DrivePoint[], systemId: string, 
     event: { id: 'practice' },
   } as unknown as FailureContext;
 
-  const stops = tourStops(fakePrimary, [], allTankPoints, yard, Math.min(5, tanks.length));
+  const stops = tourStops(fakePrimary, [], allTankPoints, yard, Math.min(3, tanks.length));
   const phys = physicsFor('standard', stops.length, 40);
   return [{
     id: 'practice-field',
     kind: 'practice',
     atUnix: 0,
     title: 'Practice field loop',
-    subtitle: 'No truck call right now — drill the pad tour',
+    subtitle: 'No truck call right now. Drill the pad tour.',
     facilityId: stops[0].facilityId,
     systemId,
     tankLabel: stops[0].label,
@@ -236,6 +235,61 @@ export function practiceMissions(allTankPoints: DrivePoint[], systemId: string, 
     difficulty: { ...phys, ...TIER_COPY.standard },
     responseMin: 40,
   }];
+}
+
+export function openingLesson(m: DriveMission): DriveLesson {
+  return {
+    id: 'open',
+    title: m.kind === 'practice' ? 'Night drill' : 'Why you are driving',
+    body: m.kind === 'practice'
+      ? 'Quiet night on the lease. Follow the dark asphalt to each glowing pad. Stay on the road. Bushes and tanks will stop you.'
+      : `Console called trucks. Waiting would fill ${m.tankLabel} past the trip line. Your job: hit every pad before the clock runs out.`,
+    tone: 'aqua',
+  };
+}
+
+export function lessonAfterPad(m: DriveMission, padIndex: number, stop: DeliveryStop): DriveLesson {
+  if (padIndex === 0) {
+    return {
+      id: `pad-${stop.id}`,
+      title: `First drop · ${stop.label}`,
+      body: 'Water left the tank. In a real plan, truck size times trips is how you keep the level under shutdown. Next pad is lit. Keep rolling.',
+      tone: 'mint',
+    };
+  }
+  if (padIndex >= m.stops.length - 2) {
+    return {
+      id: `pad-${stop.id}`,
+      title: `Almost done · ${stop.label}`,
+      body: 'One more pad after this stretch. On a live shift you would radio console after the last drop, then head back to the yard.',
+      tone: 'amber',
+    };
+  }
+  return {
+    id: `pad-${stop.id}`,
+    title: `Pad clear · ${stop.label}`,
+    body: 'Good haul. Soft sand off the asphalt slows a loaded truck. Stay on the lit road to the next tank.',
+    tone: 'aqua',
+  };
+}
+
+export function offRoadLesson(): DriveLesson {
+  return {
+    id: 'offroad',
+    title: 'You left the road',
+    body: 'Sand and scrub kill speed. Pull back onto the asphalt. Emergency water trucks stick to lease roads for a reason.',
+    tone: 'coral',
+  };
+}
+
+/** Near the next pad: short radio beat. */
+export function approachLesson(stop: DeliveryStop): DriveLesson {
+  return {
+    id: `approach-${stop.id}`,
+    title: `Coming up · ${stop.label}`,
+    body: 'Pad is close. Slow into the glowing ring. Line up clean. Dump. Then move to the next tank if there is one.',
+    tone: 'aqua',
+  };
 }
 
 export type RunStats = {
@@ -257,7 +311,7 @@ export function gradeRun(stats: RunStats, limit: number): GradeResult {
   const onTime = stats.sec <= limit;
   const fast = stats.sec <= limit * 0.78;
   const pads = stats.padsTotal === 0 || stats.padsHit >= stats.padsTotal;
-  const routeClean = stats.onRoadPct >= 0.72;
+  const routeClean = stats.onRoadPct >= 0.65;
 
   let stars = 1;
   if (pads) stars++;
@@ -270,12 +324,12 @@ export function gradeRun(stats: RunStats, limit: number): GradeResult {
     350
       + Math.max(0, (limit - stats.sec) * 10)
       + stats.onRoadPct * 200
-      + stats.padsHit * 80
+      + stats.padsHit * 100
       + Math.min(50, stats.peakSpeed * 1.5),
   );
 
-  if (!pads) return { label: 'Incomplete · missed a tank pad', tone: 'coral', stars, score };
-  if (!onTime) return { label: 'Late · tank would’ve tripped', tone: 'coral', stars, score };
+  if (!pads) return { label: 'Incomplete. Missed a tank pad', tone: 'coral', stars, score };
+  if (!onTime) return { label: 'Late. The tank would have tripped', tone: 'coral', stars, score };
   if (fast && routeClean) return { label: 'Clean multi-pad haul', tone: 'mint', stars, score };
   if (routeClean) return { label: 'Delivered on roads', tone: 'aqua', stars, score };
   return { label: 'Delivered', tone: 'amber', stars, score };

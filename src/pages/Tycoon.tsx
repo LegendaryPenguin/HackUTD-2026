@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Droplets, LifeBuoy, Lock, Plus, RotateCcw, Timer, Truck, Workflow, X, Zap } from 'lucide-react';
 import { FieldScene, type Prompt } from '../components/tycoon/FieldScene';
 import {
+  MAX_PADS,
   PAD_COST,
   SHUT_THRESHOLD,
   TRUCK_COST,
@@ -281,7 +282,11 @@ export default function Tycoon() {
           <Plus size={18} />
           <span>
             <b>New well</b>
-            <small>{fmtCash(PAD_COST)}. More oil.</small>
+            <small>
+              {canExpand(state)
+                ? `${fmtCash(PAD_COST)}. Sites left ${MAX_PADS - state.pads.length}.`
+                : 'Lease circle is full.'}
+            </small>
           </span>
         </button>
 

@@ -1,3 +1,7 @@
+/**
+ * Full-width asphalt ribbons using proven strip geometry.
+ * Lane paint lives in the texture so it cannot collapse into a thin curb line.
+ */
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import {
@@ -8,99 +12,111 @@ import {
 } from '../../lib/driveRoads';
 import type { DrivePoint } from '../../lib/driveMap';
 
-function asphaltTexture() {
+function makeAsphaltTexture(lit: boolean, repeatV: number) {
+  const w = 128;
+  const h = 256;
   const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 128;
+  c.width = w;
+  c.height = h;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#3a4a54';
-  ctx.fillRect(0, 0, 64, 128);
-  // asphalt grain
-  for (let i = 0; i < 180; i++) {
-    ctx.fillStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.05})`;
-    ctx.fillRect(Math.random() * 64, Math.random() * 128, 1, 1);
+
+  ctx.fillStyle = lit ? '#4a5560' : '#343c46';
+  ctx.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < 1400; i++) {
+    const g = 40 + Math.floor(Math.random() * 50);
+    ctx.fillStyle = `rgba(${g},${g + 3},${g + 6},${0.1 + Math.random() * 0.15})`;
+    ctx.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random() * 2);
   }
-  // center dashes — bright so roads read at night
-  ctx.fillStyle = '#f0f6fa';
-  for (let y = 4; y < 128; y += 16) ctx.fillRect(28, y, 8, 9);
-  // edge lines
-  ctx.fillStyle = '#d8e6ec';
-  ctx.fillRect(2, 0, 4, 128);
-  ctx.fillRect(58, 0, 4, 128);
+
+  // White edge lines
+  ctx.fillStyle = '#f0f4f8';
+  ctx.fillRect(4, 0, 6, h);
+  ctx.fillRect(w - 10, 0, 6, h);
+
+  // Dark channel just inside edges
+  ctx.fillStyle = 'rgba(12, 14, 18, 0.45)';
+  ctx.fillRect(10, 0, 5, h);
+  ctx.fillRect(w - 15, 0, 5, h);
+
+  // Yellow center dashes
+  ctx.fillStyle = '#f5c84a';
+  const dash = 28;
+  const gap = 22;
+  for (let y = 8; y < h; y += dash + gap) {
+    ctx.fillRect(w / 2 - 4, y, 8, dash);
+  }
+
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1, 10);
+  tex.repeat.set(1, Math.max(3, repeatV));
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.needsUpdate = true;
   return tex;
 }
 
-function RibbonMesh({ ribbon, active }: { ribbon: RoadRibbon; active: boolean }) {
-  const geo = useMemo(
-    () => buildRibbonGeometry(ribbon.samples, ROAD_HALF_WIDTH, ribbon.kind === 'ring'),
+function RoadDeck({ ribbon, active }: { ribbon: RoadRibbon; active: boolean }) {
+  const closed = ribbon.kind === 'ring';
+
+  const deck = useMemo(
+    () => buildRibbonGeometry(ribbon.samples, ROAD_HALF_WIDTH, closed),
     [ribbon],
   );
   const shoulder = useMemo(
-    () => buildRibbonGeometry(ribbon.samples, ROAD_HALF_WIDTH + 2.2, ribbon.kind === 'ring'),
+    () => buildRibbonGeometry(ribbon.samples, ROAD_HALF_WIDTH + 2.2, closed),
     [ribbon],
   );
-  const tex = useMemo(() => asphaltTexture(), []);
+  const tex = useMemo(
+    () => makeAsphaltTexture(active, Math.max(4, ribbon.length * 0.09)),
+    [active, ribbon.length],
+  );
 
   return (
     <group>
-      {/* gravel shoulder */}
-      <mesh geometry={shoulder} position={[0, 0.02, 0]}>
-        <meshStandardMaterial color="#5a6a58" roughness={0.98} metalness={0.02} />
+      <mesh geometry={shoulder} position={[0, 0.04, 0]}>
+        <meshBasicMaterial color="#2a2620" side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
-      {/* asphalt deck — lifted so it never sinks into grass */}
-      <mesh geometry={geo} position={[0, 0.06, 0]}>
-        <meshStandardMaterial
+      <mesh geometry={deck} position={[0, 0.12, 0]}>
+        <meshBasicMaterial
           map={tex}
-          color={active ? '#8eb8c8' : '#6a8290'}
-          roughness={0.78}
-          metalness={0.14}
-          emissive={active ? '#2a6070' : '#152028'}
-          emissiveIntensity={active ? 0.7 : 0.22}
-          polygonOffset
-          polygonOffsetFactor={-1}
+          side={THREE.DoubleSide}
+          toneMapped={false}
         />
       </mesh>
     </group>
   );
 }
 
-function RibbonLamps({ ribbon, bright }: { ribbon: RoadRibbon; bright: boolean }) {
+function RoadLamps({ ribbon }: { ribbon: RoadRibbon }) {
   const lamps = useMemo(() => {
     const out: { x: number; z: number }[] = [];
-    const step = Math.max(2, Math.floor(ribbon.samples.length / (bright ? 6 : 4)));
+    const step = Math.max(4, Math.floor(ribbon.samples.length / 7));
     for (let i = step; i < ribbon.samples.length - 1; i += step) {
       const p = ribbon.samples[i];
       const t = ribbon.tangents[i];
       out.push({
-        x: p.x + (-t.z) * (ROAD_HALF_WIDTH + 1.6),
-        z: p.z + t.x * (ROAD_HALF_WIDTH + 1.6),
+        x: p.x + (-t.z) * (ROAD_HALF_WIDTH + 2.2),
+        z: p.z + t.x * (ROAD_HALF_WIDTH + 2.2),
       });
     }
     return out;
-  }, [ribbon, bright]);
+  }, [ribbon]);
 
   return (
     <group>
       {lamps.map((l, i) => (
         <group key={i} position={[l.x, 0, l.z]}>
-          <mesh position={[0, 2.2, 0]}>
-            <cylinderGeometry args={[0.08, 0.12, 4.4, 5]} />
-            <meshStandardMaterial color="#3a4a52" metalness={0.4} roughness={0.45} />
+          <mesh position={[0, 2.4, 0]}>
+            <cylinderGeometry args={[0.09, 0.12, 4.8, 5]} />
+            <meshBasicMaterial color="#3a4a52" toneMapped={false} />
           </mesh>
-          <mesh position={[0, 4.5, 0]}>
-            <sphereGeometry args={[0.22, 6, 6]} />
-            <meshStandardMaterial
-              color="#e8f6ff"
-              emissive="#9ae4ef"
-              emissiveIntensity={bright ? 1.6 : 0.85}
-            />
+          <mesh position={[0, 4.9, 0]}>
+            <sphereGeometry args={[0.26, 6, 6]} />
+            <meshBasicMaterial color="#dff6ff" toneMapped={false} />
           </mesh>
-          {bright && <pointLight position={[0, 4.3, 0]} intensity={4} distance={14} color="#c8f0f8" />}
+          <pointLight position={[0, 4.7, 0]} intensity={5} distance={14} color="#c8f0f8" />
         </group>
       ))}
     </group>
@@ -124,12 +140,11 @@ export function PlantRoads({
   return (
     <group>
       {ribbons.map((r) => {
-        const active = activeIds.has(r.id);
-        const arterial = r.kind === 'access' || r.kind === 'ring';
+        const active = activeIds.has(r.id) || r.kind === 'ring' || r.kind === 'access';
         return (
           <group key={r.id}>
-            <RibbonMesh ribbon={r} active={active || arterial} />
-            {arterial && <RibbonLamps ribbon={r} bright={active} />}
+            <RoadDeck ribbon={r} active={active} />
+            {(r.kind === 'access' || r.kind === 'ring') && <RoadLamps ribbon={r} />}
           </group>
         );
       })}

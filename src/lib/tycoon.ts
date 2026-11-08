@@ -147,20 +147,42 @@ export const SHUT_THRESHOLD = 92;
 /** $/bbl realized oil price */
 export const OIL_PRICE_BBL = 68;
 
-const PAD_SLOTS: { x: number; z: number }[] = [
-  { x: -5.5, z: 2 },
-  { x: -2, z: 3 },
-  { x: 1.5, z: 2.8 },
-  { x: 5, z: 1.8 },
-  { x: -5, z: -1.5 },
-  { x: -1.2, z: -2.4 },
-  { x: 2.4, z: -2 },
-  { x: 5.2, z: -3.4 },
-  { x: -3, z: -5.2 },
-];
-
-/** Central tank farm — pipes connect pads here */
+/** Central tank farm. Pipes connect pads here. */
 export const TANK_POS = { x: -8.5, z: -4.5 };
+
+/** Lease ring radius (matches FieldScene teal ring) */
+export const LEASE_R = 14.5;
+
+function buildPadSlots(): { x: number; z: number }[] {
+  const slots: { x: number; z: number }[] = [
+    { x: -5.5, z: 2 },
+    { x: -2, z: 3 },
+    { x: 1.5, z: 2.8 },
+    { x: 5, z: 1.8 },
+    { x: -5, z: -1.5 },
+    { x: -1.2, z: -2.4 },
+    { x: 2.4, z: -2 },
+    { x: 5.2, z: -3.4 },
+    { x: -3, z: -5.2 },
+  ];
+  const minDist = 2.55;
+  for (const r of [3.6, 5.8, 8.1, 10.4, 12.2]) {
+    const count = Math.max(6, Math.round(r * 2.1));
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + r * 0.17;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      if (Math.hypot(x, z) > LEASE_R - 1.6) continue;
+      if (Math.hypot(x - TANK_POS.x, z - TANK_POS.z) < 3.6) continue;
+      if (slots.some((s) => Math.hypot(s.x - x, s.z - z) < minDist)) continue;
+      slots.push({ x, z });
+    }
+  }
+  return slots;
+}
+
+const PAD_SLOTS = buildPadSlots();
+export const MAX_PADS = PAD_SLOTS.length;
 
 let seq = 1;
 
@@ -571,7 +593,10 @@ export function upgrade(state: TycoonState, padId: string): TycoonState {
 
 export function expandPad(state: TycoonState): TycoonState {
   if (!canExpand(state)) {
-    return { ...state, popups: pushPopup(state, 'Plot full', 'No more pads', 'coral') };
+    return {
+      ...state,
+      popups: pushPopup(state, 'Lease full', `All ${MAX_PADS} pad sites on this circle are claimed.`, 'coral'),
+    };
   }
   if (state.cash < PAD_COST) {
     return { ...state, popups: pushPopup(state, 'Need cash', `New well ${fmtCash(PAD_COST)}`, 'coral') };
