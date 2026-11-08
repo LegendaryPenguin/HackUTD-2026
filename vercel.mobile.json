@@ -1,11 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && node -e \"require('fs').copyFileSync('dist/mobile.html','dist/index.html')\"",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/", "destination": "/mobile.html" },
-    { "source": "/index.html", "destination": "/mobile.html" },
-    { "source": "/((?!mobile\\.html|assets/|data/|docs/|drive/|emblem\\.jpg|favicon\\.svg|icons\\.svg|manifest\\.mobile\\.webmanifest|sw-mobile\\.js).*)", "destination": "/mobile.html" }
+    { "source": "/((?!assets/|data/|docs/|drive/|emblem\\.jpg|favicon\\.svg|icons\\.svg|manifest\\.mobile\\.webmanifest|sw-mobile\\.js|mobile\\.html).*)", "destination": "/index.html" }
   ]
 }
