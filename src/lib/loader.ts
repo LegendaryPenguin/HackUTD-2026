@@ -51,14 +51,17 @@ export function parseTelemetry(text: string): Telemetry {
   return { ts: tsArr, series, metrics };
 }
 
+const dataUrl = (path: string) =>
+  `${import.meta.env.BASE_URL}data/${path}`.replace(/\/{2,}/g, '/').replace(':/', '://');
+
 export async function fetchDataset(name: string, onProgress?: (msg: string) => void): Promise<Dataset> {
   onProgress?.('Loading network…');
   const [network, ops] = await Promise.all([
-    fetch(`/data/${name}/network.json`).then((r) => r.json() as Promise<Network>),
-    fetch(`/data/${name}/ops.json`).then((r) => r.json() as Promise<Ops>),
+    fetch(dataUrl(`${name}/network.json`)).then((r) => r.json() as Promise<Network>),
+    fetch(dataUrl(`${name}/ops.json`)).then((r) => r.json() as Promise<Ops>),
   ]);
   onProgress?.('Streaming telemetry…');
-  const text = await fetch(`/data/${name}/telemetry.csv`).then((r) => r.text());
+  const text = await fetch(dataUrl(`${name}/telemetry.csv`)).then((r) => r.text());
   onProgress?.('Indexing sensors…');
   const telemetry = parseTelemetry(text);
   return { name, network, ops, telemetry };
@@ -66,7 +69,7 @@ export async function fetchDataset(name: string, onProgress?: (msg: string) => v
 
 export async function listDatasets(): Promise<string[]> {
   try {
-    const r = await fetch('/data/index.json', { cache: 'no-store' });
+    const r = await fetch(dataUrl('index.json'), { cache: 'no-store' });
     if (!r.ok) return [];
     const j = (await r.json()) as string[];
     return j;

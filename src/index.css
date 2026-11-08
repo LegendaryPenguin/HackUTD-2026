@@ -186,6 +186,7 @@ a:hover { color: var(--ink-0); }
   align-items: flex-end;
   gap: 1px;
   line-height: 1.1;
+  animation: stampThump 0.42s cubic-bezier(0.22, 1.2, 0.36, 1) both;
 }
 .occurred-stamp__label {
   font-size: 9px;
@@ -328,7 +329,7 @@ body:has(.shell.field-backdrop)::before {
   transform: translateY(-1px);
   box-shadow: var(--shadow-soft);
 }
-.btn:active { transform: translateY(0); }
+.btn:active { transform: translateY(0) scale(0.97); }
 .btn.primary {
   background: var(--aqua-dim);
   color: var(--ink-0);
@@ -336,6 +337,7 @@ body:has(.shell.field-backdrop)::before {
   box-shadow: none;
 }
 .btn.primary:hover { filter: brightness(1.08); background: rgba(79, 143, 154, 0.22); box-shadow: none; }
+.btn.primary:active { filter: brightness(1.04); }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-1); }
 .btn.ghost:hover { background: rgba(255, 255, 255, 0.05); color: var(--ink-0); }
 .btn.danger { border-color: rgba(240, 138, 154, 0.35); color: var(--coral); }
@@ -577,6 +579,19 @@ body:has(.shell.field-backdrop)::before {
 
 /* ---------- animations ---------- */
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 100% { box-shadow: 0 0 0 10px transparent; opacity: 1; } }
+@keyframes stampThump {
+  0% { opacity: 0; transform: translateY(-6px) scale(1.06); }
+  70% { opacity: 1; transform: translateY(1px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes chipLand {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes actPulseRing {
+  0% { transform: scale(0.72); opacity: 0.7; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
 @keyframes softPulse {
   0%, 100% { opacity: 1; filter: brightness(1); }
   50% { opacity: 0.88; filter: brightness(1.08); }

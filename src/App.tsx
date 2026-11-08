@@ -14,7 +14,7 @@ const Tycoon = lazy(() => import('./pages/Tycoon'));
 export default function App() {
   return (
     <StoreProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Network />} />
