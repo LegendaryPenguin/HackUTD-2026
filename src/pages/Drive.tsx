@@ -393,23 +393,47 @@ export default function Drive() {
       {(flow === 'run' || flow === 'finish') && mission && (
         <>
           <div className="drive-hud top">
-            <div className="drive-mission">
-              <div className="drive-mission-nav">
-                <button type="button" className="btn ghost sm" onClick={backToHauls}>
-                  <ArrowLeft size={14} /> All hauls
-                </button>
-                <Link to="/" className="btn ghost sm">
-                  <MapIcon size={14} /> Map
-                </Link>
+            <div className="drive-hud-left">
+              <div className="drive-mission">
+                <div className="drive-mission-nav">
+                  <button type="button" className="btn ghost sm" onClick={backToHauls}>
+                    <ArrowLeft size={14} /> All hauls
+                  </button>
+                  <Link to="/" className="btn ghost sm">
+                    <MapIcon size={14} /> Map
+                  </Link>
+                </div>
+                <span className={`chip ${mission.difficulty.tone}`}>{mission.difficulty.label}</span>
+                <h1>
+                  {nextStop ? `Deliver · ${nextStop.label}` : 'Haul complete'}
+                </h1>
+                <p>
+                  Pad {Math.min(padsHit + (nextStop ? 1 : 0), padsTotal)} of {padsTotal}
+                  {mission.kind === 'truck_run' ? ` · ${fmt.dayTime(mission.atUnix)}` : ''}
+                </p>
               </div>
-              <span className={`chip ${mission.difficulty.tone}`}>{mission.difficulty.label}</span>
-              <h1>
-                {nextStop ? `Deliver · ${nextStop.label}` : 'Haul complete'}
-              </h1>
-              <p>
-                Pad {Math.min(padsHit + (nextStop ? 1 : 0), padsTotal)} of {padsTotal}
-                {mission.kind === 'truck_run' ? ` · ${fmt.dayTime(mission.atUnix)}` : ''}
-              </p>
+
+              {flow === 'run' && (
+                <div className="drive-obj-live" aria-live="polite">
+                  <h3>Delivery tour</h3>
+                  <ol>
+                    {mission.stops.map((s, i) => {
+                      const hit = telem.padHits.includes(s.id);
+                      const now = s.id === nextStop?.id;
+                      return (
+                        <li key={s.id} className={hit ? 'done' : now ? 'now' : ''}>
+                          <i>{hit ? '✓' : i + 1}</i>
+                          {s.label}
+                        </li>
+                      );
+                    })}
+                    <li className={telem.onRoad ? (onRoadPctLive >= 72 ? 'done' : '') : 'now'}>
+                      <i>{onRoadPctLive >= 72 ? '✓' : '·'}</i>
+                      Stay on roads · {onRoadPctLive}%
+                    </li>
+                  </ol>
+                </div>
+              )}
             </div>
             <div className="drive-stats">
               <div className={`drive-stat ${over ? 'hot' : ''}`}>
@@ -444,26 +468,6 @@ export default function Drive() {
                   <i style={{ transform: `rotate(${needle}deg)` }} />
                 </div>
                 <span>{nextStop ? 'Next pad' : 'Done'}</span>
-              </div>
-
-              <div className="drive-obj-live" aria-live="polite">
-                <h3>Delivery tour</h3>
-                <ol>
-                  {mission.stops.map((s, i) => {
-                    const hit = telem.padHits.includes(s.id);
-                    const now = s.id === nextStop?.id;
-                    return (
-                      <li key={s.id} className={hit ? 'done' : now ? 'now' : ''}>
-                        <i>{hit ? '✓' : i + 1}</i>
-                        {s.label}
-                      </li>
-                    );
-                  })}
-                  <li className={telem.onRoad ? (onRoadPctLive >= 72 ? 'done' : '') : 'now'}>
-                    <i>{onRoadPctLive >= 72 ? '✓' : '·'}</i>
-                    Stay on roads · {onRoadPctLive}%
-                  </li>
-                </ol>
               </div>
 
               {padFlash && <div className="drive-gate-flash">{padFlash}</div>}

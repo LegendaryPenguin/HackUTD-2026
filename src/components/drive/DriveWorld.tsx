@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { distToRoads, type DrivePoint, type DriveRoad } from '../../lib/driveMap';
 import { ROAD_HALF_WIDTH } from '../../lib/driveRoads';
+import { LEASE_RADIUS } from '../../lib/drivePhysics';
 
 function seeded(n: number) {
   const x = Math.sin(n * 127.1) * 43758.5453;
@@ -55,11 +56,10 @@ export type NatureBlocker = { x: number; z: number; r: number };
 
 export function buildNatureProps(roads: DriveRoad[], points: DrivePoint[]): NatureProp[] {
   const out: NatureProp[] = [];
-  const sample = roads.filter((_, i) => i % 4 === 0);
-  const clear = ROAD_HALF_WIDTH + 4;
+  const clear = ROAD_HALF_WIDTH + 7;
   const blocked = (x: number, z: number, min: number) =>
-    distToRoads(x, z, sample) < min
-    || points.some((p) => Math.hypot(p.x - x, p.z - z) < (p.kind === 'tank' ? 18 : 12));
+    distToRoads(x, z, roads) < min
+    || points.some((p) => Math.hypot(p.x - x, p.z - z) < (p.kind === 'tank' ? 16 : 14));
 
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + seeded(i) * 0.15;
@@ -86,11 +86,11 @@ export function buildNatureProps(roads: DriveRoad[], points: DrivePoint[]): Natu
 
 export function natureBlockersFromProps(props: NatureProp[]): NatureBlocker[] {
   return props
-    .filter((p) => p.kind === 'bush' || p.kind === 'rock' || p.kind === 'tree')
+    .filter((p) => p.kind === 'rock' || p.kind === 'tree')
     .map((p) => ({
       x: p.x,
       z: p.z,
-      r: p.kind === 'tree' ? 1.8 * p.s : p.kind === 'rock' ? 1.3 * p.s : 1.55 * p.s,
+      r: p.kind === 'tree' ? 0.7 * p.s : 0.85 * p.s,
     }));
 }
 
@@ -158,8 +158,12 @@ export function DriveWorld({
     <group>
       <SkyDome />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
-        <circleGeometry args={[220, 40]} />
+        <circleGeometry args={[LEASE_RADIUS + 8, 48]} />
         <meshStandardMaterial map={tex} color="#8a7a62" roughness={0.96} metalness={0.02} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[LEASE_RADIUS - 1.2, LEASE_RADIUS + 1.4, 64]} />
+        <meshBasicMaterial color="#3a3028" side={THREE.DoubleSide} />
       </mesh>
       {props.map((p, i) => (
         <group key={i} position={[p.x, 0, p.z]} rotation={[0, p.ry, 0]}>

@@ -12,7 +12,6 @@ import {
 import {
   Activity,
   Bell,
-  ClipboardList,
   Fuel,
   Map as MapIcon,
   PanelLeftClose,
@@ -87,7 +86,6 @@ export function SideRail({
 
   const review: RailLink[] = [
     { to: '/trends', label: 'Trends', short: 'Trends', sub: 'Sensor tape', icon: Activity },
-    { to: '/log', label: 'Shift log', short: 'Log', sub: 'Handoff', icon: ClipboardList },
     { to: '/tycoon', label: 'Oil Tycoon', short: 'Tycoon', sub: 'Field play', icon: Fuel },
   ];
 
@@ -140,7 +138,8 @@ export function SideRail({
                     reduce={!!reduce}
                     mouseY={mouseY}
                     onNavigate={() => {
-                      /* keep rail open while browsing */
+                      // Field map is map-first — close the drawer when entering it
+                      if (item.to === '/' || item.to === '/network') onOpenChange(false);
                     }}
                   />
                 ))}
@@ -162,7 +161,11 @@ export function SideRail({
             </div>
 
             {hottest && htl != null ? (
-              <NavLink to={`/?f=${hottest.facility.id}&flow=decide`} className="rail-watch-hero">
+              <NavLink
+                to={`/?f=${hottest.facility.id}&flow=decide`}
+                className="rail-watch-hero"
+                onClick={() => onOpenChange(false)}
+              >
                 <div className="rail-watch-eta">
                   <Timer size={15} strokeWidth={2} />
                   <em>{fmt.dur(htl)}</em>

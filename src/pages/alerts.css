@@ -274,6 +274,17 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+.alert-inspect-hit {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.alert-inspect-hit:hover h3 {
+  color: var(--aqua-2);
+}
+
 .alert-inspect::before {
   content: '';
   position: absolute;

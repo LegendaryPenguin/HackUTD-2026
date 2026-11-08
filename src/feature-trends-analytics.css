@@ -3,21 +3,34 @@
 
 .tide-dock {
   position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 35;
-  width: min(920px, calc(100vw - 28px));
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  transform: none;
+  z-index: 30;
+  transition: opacity 0.2s ease, transform 0.2s ease, left 0.28s cubic-bezier(0.22, 0.9, 0.25, 1);
+  width: auto;
+  max-width: none;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 14px 16px;
   align-items: center;
   padding: 12px 16px;
   border-radius: 20px;
-  background: rgba(6, 16, 24, 0.88);
+  background: rgba(6, 16, 24, 0.92);
   border: 1px solid var(--line-strong);
   box-shadow: 0 18px 48px rgba(2, 10, 18, 0.55);
   backdrop-filter: blur(16px) saturate(1.2);
+}
+.shell.is-rail-open .tide-dock {
+  left: calc(var(--nav-open) + 14px);
+}
+.shell.map-mode .tide-dock {
+  /* map already has its own bottom chrome; keep dock clear of the rail */
+  left: 14px;
+}
+.shell.map-mode.is-rail-open .tide-dock {
+  left: calc(var(--nav-open) + 14px);
 }
 .tide-dock-clock {
   display: flex; flex-direction: column; gap: 2px; min-width: 118px;
@@ -53,8 +66,13 @@
 }
 .tide-dock-actions .btn { justify-content: center; }
 .financials-cum { color: var(--mint); }
-.shell.map-mode .map-float-bl { bottom: calc(18px + var(--dock-h)); }
-.shell:not(.map-mode):not(.drive-mode) .main { padding-bottom: calc(var(--dock-h) + 28px); }
+.shell.map-mode .map-float-bl { bottom: calc(22px + var(--dock-h)); }
+.shell.map-mode .map-stage {
+  padding-bottom: calc(var(--dock-h) + 18px);
+}
+.shell:not(.map-mode):not(.drive-mode):not(.trends-mode) .main {
+  padding-bottom: calc(var(--dock-h) + 28px);
+}
 
 .timebar { display: flex; align-items: center; gap: 10px; margin-left: auto; min-width: 0; flex: 1; justify-content: flex-end; }
 .clock {
@@ -87,9 +105,11 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   width: 100%;
   display: flex; flex-direction: column; gap: 10px;
-  padding: 12px 16px calc(var(--dock-h) + 14px);
+  /* Single dock clearance — stage fills down to just above the timeline */
+  padding: 12px 16px calc(var(--dock-h) + 8px);
   max-width: none; margin: 0; z-index: 1;
   box-sizing: border-box;
 }
@@ -102,11 +122,15 @@
   scroll-snap-type: y proximity;
 }
 .trends-facility {
-  flex: 1 0 auto;
+  flex: 0 0 auto;
   scroll-snap-align: start;
   display: flex; flex-direction: column; gap: 8px;
-  min-height: min(68vh, 560px);
   max-height: none;
+}
+/* First facility fills the scrollport so the stage meets the timeline */
+.trends-scroll > .trends-facility:first-child {
+  flex: 1 1 auto;
+  min-height: 100%;
 }
 .trends-facility.focus .trends-stage {
   border-color: rgba(94,200,216,.45);
@@ -141,26 +165,8 @@
 .trend-legend .lg.violet { color: var(--violet); border-top-style: dashed; }
 .trend-legend .lg.ghost { color: var(--ink-3); border-top-style: dashed; }
 .trends-sky {
-  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-}
-.trends-sky img {
-  width: 100%; height: 100%; object-fit: cover; opacity: 0.42;
-  filter: saturate(1.05) brightness(0.72);
-}
-.trends-sky-wash {
-  position: absolute; inset: 0;
-  background:
-    linear-gradient(180deg, rgba(4,12,20,.55), rgba(4,12,20,.78) 55%, rgba(4,12,20,.92)),
-    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(94,200,216,.18), transparent 60%);
-}
-.trends-sky-aurora {
-  position: absolute; inset: -10% -5% auto; height: 46%;
-  background:
-    radial-gradient(ellipse 40% 60% at 25% 40%, rgba(94,200,216,.22), transparent 70%),
-    radial-gradient(ellipse 35% 50% at 70% 30%, rgba(125,206,160,.16), transparent 70%),
-    radial-gradient(ellipse 30% 40% at 55% 60%, rgba(126,184,255,.12), transparent 70%);
-  animation: auroraDrift 18s ease-in-out infinite alternate;
-  filter: blur(8px);
+  /* Global field backdrop already paints the scene — no local black wash/blur */
+  display: none;
 }
 .trends-chrome { position: relative; z-index: 2; flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; }
 .trends-chrome-top {
@@ -217,7 +223,7 @@
 .trend-case-ev { font-size: 12.5px; color: var(--ink-1); flex: 1 1 220px; }
 .trends-stage {
   flex: 1 1 auto;
-  min-height: min(52vh, 480px);
+  min-height: 0;
   display: flex;
   border-radius: 22px;
   border: 1px solid rgba(94,200,216,.22);
@@ -242,7 +248,7 @@
 .trend-scene-chart {
   /* Explicit height for Recharts ResponsiveContainer (height:auto collapses). */
   flex: 1 1 auto;
-  min-height: 260px;
+  min-height: 320px;
   width: 100%;
   position: relative;
   height: 100%;
@@ -423,8 +429,13 @@
   }
   .map-stage:has(.map-side-panel) .map-float-tr { right: 14px; top: 14px; }
   .map-float-bl { display: none; }
-  .tide-dock {
-    width: calc(100vw - 16px);
+  .tide-dock,
+  .shell.is-rail-open .tide-dock,
+  .shell.map-mode .tide-dock,
+  .shell.map-mode.is-rail-open .tide-dock {
+    left: 8px;
+    right: 8px;
+    width: auto;
     bottom: 10px;
     grid-template-columns: 1fr auto;
     gap: 8px 10px;
@@ -448,14 +459,7 @@
   position: relative;
   min-height: 100%;
   padding: 18px 20px 48px;
-  background-size: cover;
-  background-position: center 40%;
-}
-.crew-stage-veil {
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(4, 11, 18, 0.58), rgba(4, 11, 18, 0.88)),
-    radial-gradient(60% 50% at 50% 20%, rgba(94, 200, 216, 0.08), transparent 70%);
+  background: transparent;
 }
 .crew-top,
 .crew-rail,
@@ -797,15 +801,20 @@
 .shell.drive-mode .main {
   overflow: hidden;
   padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
 }
 .drive-page {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   z-index: 1;
-  background:
-    radial-gradient(50% 40% at 15% 10%, rgba(94, 200, 216, 0.14), transparent 55%),
-    radial-gradient(45% 35% at 85% 20%, rgba(126, 184, 255, 0.1), transparent 50%),
-    #060e16;
+  background: transparent;
+}
+.drive-page > div:has(> canvas) {
+  position: absolute !important;
+  inset: 0;
 }
 .drive-page canvas {
   display: block;
@@ -849,10 +858,7 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 18px 20px 48px;
-  background:
-    radial-gradient(55% 40% at 12% 0%, rgba(94, 200, 216, 0.12), transparent 55%),
-    radial-gradient(40% 30% at 90% 8%, rgba(126, 184, 255, 0.08), transparent 50%),
-    rgba(6, 14, 22, 0.96);
+  background: transparent;
 }
 .drive-select-inner {
   width: min(980px, 100%);
@@ -866,7 +872,7 @@
   z-index: 2;
   margin: 0 0 8px;
   padding: 4px 0 14px;
-  background: linear-gradient(180deg, rgba(6, 14, 22, 0.98) 70%, rgba(6, 14, 22, 0));
+  background: transparent;
 }
 .drive-chrome-nav,
 .drive-mission-nav {
@@ -1122,10 +1128,18 @@
 .drive-hud.top {
   top: 14px;
   align-items: flex-start;
-  max-height: min(42vh, 320px);
+  max-height: min(58vh, 460px);
   overflow: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
+}
+.drive-hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: min(420px, 70vw);
+  flex: 0 1 auto;
 }
 .drive-hud.bottom {
   bottom: 18px;
@@ -1133,7 +1147,7 @@
   flex-wrap: wrap;
 }
 .drive-mission {
-  max-width: min(420px, 70vw);
+  width: 100%;
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--line-strong);
@@ -1304,12 +1318,13 @@
   font-weight: 700;
 }
 .drive-obj-live {
-  position: absolute;
-  left: 16px;
-  top: 132px;
-  z-index: 8;
-  width: min(260px, calc(100vw - 180px));
-  max-height: min(38vh, 280px);
+  position: relative;
+  left: auto;
+  top: auto;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  max-height: min(28vh, 200px);
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--line-strong);
@@ -1319,6 +1334,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  flex: 0 1 auto;
 }
 .drive-obj-live h3 {
   position: sticky;
@@ -1584,7 +1600,8 @@
     left: 10px;
     right: 10px;
   }
-  .drive-mission { max-width: 100%; }
+  .drive-hud-left,
+  .drive-mission { max-width: 100%; width: 100%; }
   .drive-stats { justify-content: flex-start; }
   .drive-compass { display: none; }
   .drive-hud.bottom {
@@ -1601,11 +1618,7 @@
   .drive-brief-grid { grid-template-columns: 1fr; }
   .drive-coach { bottom: 16px; }
   .drive-obj-live {
-    top: auto;
-    bottom: 118px;
-    left: 10px;
-    width: min(200px, 48vw);
-    max-height: 28vh;
+    max-height: min(22vh, 160px);
   }
   .drive-minimap {
     right: 10px;

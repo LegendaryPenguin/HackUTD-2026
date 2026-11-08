@@ -1,7 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { ChevronDown, FolderOpen } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import emblem from '../assets/emblem.jpg';
+import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
 import { SideRail } from './motion/SideRail';
@@ -21,7 +22,13 @@ export function Layout() {
   const trendsMode = location.pathname === '/trends';
   const driveMode = location.pathname === '/drive';
   const tycoonMode = location.pathname === '/tycoon';
+  const fieldBackdrop = !mapMode && !tycoonMode;
   const showOutlet = !!dataset || tycoonMode;
+
+  // Map-first: arriving on the field map always tucks the sidebar away
+  useEffect(() => {
+    if (mapMode) setRailOpen(false);
+  }, [mapMode, location.pathname]);
 
   return (
     <div
@@ -32,8 +39,15 @@ export function Layout() {
         trendsMode ? 'trends-mode' : '',
         driveMode ? 'drive-mode' : '',
         tycoonMode ? 'tycoon-mode' : '',
+        fieldBackdrop ? 'field-backdrop' : '',
       ].filter(Boolean).join(' ')}
     >
+      {fieldBackdrop && (
+        <div className="field-stage-bg" aria-hidden>
+          <div className="field-stage-photo" style={{ backgroundImage: `url(${fieldBg})` }} />
+          <div className="field-stage-veil" />
+        </div>
+      )}
       <div className="tide-ambient" aria-hidden>
         <span className="orb a" />
         <span className="orb b" />

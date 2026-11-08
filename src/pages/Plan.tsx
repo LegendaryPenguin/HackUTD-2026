@@ -7,7 +7,7 @@ import { useStore } from '../state/store';
 import { facilityRevPerHour, fmt, wellRevPerHour } from '../lib/model';
 import { planSystem, traceFor, truckArrivals } from '../lib/planner';
 import type { Dataset, FailureContext, PlanOption } from '../lib/types';
-import { TankGauge } from '../components/TankGauge';
+import { WaterJug3D } from '../components/WaterJug3D';
 import { Countdown, fadeUp } from '../components/ui';
 import { TruckIcon } from '../components/Icons';
 import './plan.css';
@@ -91,13 +91,12 @@ export default function Plan() {
             {analysis.orderedFailures.map((c, i) => (
               <Link key={c.event.id} to={`/?f=${c.facility.id}&flow=decide`} className="plan-picker-card">
                 <div className="plan-picker-rank">{i + 1}</div>
-                <TankGauge
+                <WaterJug3D
                   level={c.levelPct}
                   warn={dataset.network.defaults.tank_limits_pct.warning}
                   shut={dataset.network.defaults.tank_limits_pct.shutdown}
-                  width={56}
-                  height={72}
                   failed
+                  size="sm"
                 />
                 <div className="plan-picker-body">
                   <div className="plan-picker-title">{c.facility.id}</div>

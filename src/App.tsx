@@ -6,7 +6,6 @@ import Alerts from './pages/Alerts';
 import Network from './pages/Network';
 import Plan from './pages/Plan';
 import Trends from './pages/Trends';
-import ShiftLog from './pages/ShiftLog';
 import Crew from './pages/Crew';
 import Drive from './pages/Drive';
 
@@ -26,7 +25,6 @@ export default function App() {
             <Route path="crew" element={<Crew />} />
             <Route path="shifts" element={<Crew />} />
             <Route path="drive" element={<Drive />} />
-            <Route path="log" element={<ShiftLog />} />
             <Route
               path="tycoon"
               element={

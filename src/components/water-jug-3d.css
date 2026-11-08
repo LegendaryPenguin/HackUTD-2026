@@ -1,20 +1,168 @@
 .water-jug {
-  width: 108px;
+  --jug-w: 72px;
+  --jug-h: 108px;
+  --jug-r: 18px;
+  --water: #2eb6d4;
+  --water-deep: #127a96;
+  width: var(--jug-w);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
+  perspective: 420px;
 }
-.water-jug-canvas {
-  width: 108px;
-  height: 132px;
+.water-jug.size-sm {
+  --jug-w: 52px;
+  --jug-h: 78px;
+  --jug-r: 14px;
 }
-.water-jug-canvas canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
+.water-jug.tone-warn {
+  --water: #e0a84a;
+  --water-deep: #9a6a1e;
 }
+.water-jug.tone-critical {
+  --water: #f08a9a;
+  --water-deep: #b34055;
+}
+
+.water-jug-stage {
+  position: relative;
+  width: var(--jug-w);
+  height: calc(var(--jug-h) + 10px);
+  display: grid;
+  place-items: end center;
+}
+
+.water-jug-shadow {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45), transparent 70%);
+  filter: blur(2px);
+}
+
+.water-jug-body {
+  position: relative;
+  width: var(--jug-w);
+  height: var(--jug-h);
+  transform: rotateX(8deg) rotateY(-14deg);
+  transform-style: preserve-3d;
+  margin-bottom: 4px;
+}
+
+.water-jug-rim {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -3px;
+  height: 10px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(180, 210, 230, 0.2)),
+    rgba(210, 228, 240, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  z-index: 3;
+}
+
+.water-jug-glass {
+  position: absolute;
+  inset: 4px 0 8px;
+  border-radius: calc(var(--jug-r) * 0.85) calc(var(--jug-r) * 0.85) var(--jug-r) var(--jug-r) / 18% 18% 42% 42%;
+  background:
+    linear-gradient(110deg, rgba(255, 255, 255, 0.22), transparent 32%, transparent 68%, rgba(255, 255, 255, 0.08)),
+    linear-gradient(180deg, rgba(180, 210, 230, 0.16), rgba(20, 40, 55, 0.12));
+  border: 1.5px solid rgba(210, 230, 245, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 8px 0 16px rgba(255, 255, 255, 0.08),
+    inset -10px 0 18px rgba(0, 30, 50, 0.18),
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  backdrop-filter: blur(0.5px);
+}
+
+.water-jug-shine {
+  position: absolute;
+  top: 8%;
+  bottom: 12%;
+  left: 14%;
+  width: 18%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+  filter: blur(0.4px);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.water-jug-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40%;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--water) 88%, white) 0%, var(--water) 28%, var(--water-deep) 100%);
+  box-shadow: inset 0 8px 16px rgba(255, 255, 255, 0.18);
+  transition: height 0.9s cubic-bezier(0.22, 0.9, 0.25, 1);
+  overflow: hidden;
+}
+
+.water-jug-wave {
+  position: absolute;
+  left: -20%;
+  top: -7px;
+  width: 140%;
+  height: 14px;
+  border-radius: 40%;
+  background: color-mix(in srgb, var(--water) 70%, white);
+  opacity: 0.85;
+  animation: jugWave 2.8s ease-in-out infinite;
+}
+.water-jug-wave.b {
+  top: -4px;
+  opacity: 0.45;
+  background: color-mix(in srgb, var(--water) 55%, #041018);
+  animation-duration: 3.6s;
+  animation-direction: reverse;
+}
+.water-jug.is-static .water-jug-wave {
+  animation: none;
+}
+
+.water-jug-limit {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  height: 1px;
+  z-index: 2;
+  pointer-events: none;
+}
+.water-jug-limit.warn {
+  background: linear-gradient(90deg, transparent, rgba(232, 192, 122, 0.9), transparent);
+}
+.water-jug-limit.shut {
+  background: linear-gradient(90deg, transparent, rgba(240, 138, 154, 0.95), transparent);
+}
+
+.water-jug-base {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 0;
+  height: 9px;
+  border-radius: 50%;
+  background:
+    linear-gradient(180deg, rgba(190, 210, 225, 0.35), rgba(90, 120, 140, 0.35));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+}
+
 .water-jug-pct {
   font-family: var(--font-display);
   font-size: 14px;
@@ -22,6 +170,10 @@
   letter-spacing: 0.04em;
   color: #fff;
   line-height: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+.water-jug.size-sm .water-jug-pct {
+  font-size: 12px;
 }
 .water-jug-label {
   font-size: 10px;
@@ -32,3 +184,8 @@
   white-space: nowrap;
 }
 .water-jug.is-failed .water-jug-pct { color: var(--coral); }
+
+@keyframes jugWave {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50% { transform: translateX(8%) scaleY(1.15); }
+}

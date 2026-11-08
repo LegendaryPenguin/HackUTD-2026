@@ -14,8 +14,15 @@ import basinBg from '../assets/night-tide/backgrounds/midnight-permian-basin.png
 import desertBg from '../assets/night-tide/backgrounds/miniature-desert.png';
 import wireframeTide from '../assets/night-tide/backgrounds/wireframe-tide.jpg';
 
-/** System → thread station sticker (baked S# glyphs are clipped; MapPin draws one plate). */
-export const systemThreads: Record<string, string> = {
+/**
+ * Station icon set toggle.
+ * - false → original Night Tide tanks + letter badge (active now)
+ * - true  → S1–S5 building stickers (previous set — flip this if you want them back)
+ */
+export const USE_BUILDING_STATION_ICONS = false;
+
+/** Building-thread stickers kept on disk so we can flip back instantly. */
+const buildingThreads: Record<string, string> = {
   S1: systemS1,
   S2: systemS2,
   S3: systemS3,
@@ -23,10 +30,16 @@ export const systemThreads: Record<string, string> = {
   S5: systemS5,
 };
 
+/** Active station art map (tank originals, or buildings when the flag is on). */
+export const systemThreads: Record<string, string> = USE_BUILDING_STATION_ICONS
+  ? buildingThreads
+  : { S1: tankArt, S2: tankArt, S3: tankArt, S4: tankArt, S5: tankArt };
+
 export function systemThreadArt(systemId: string): string {
+  if (!USE_BUILDING_STATION_ICONS) return tankArt;
   const key = systemId.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const m = key.match(/S[1-5]/);
-  return systemThreads[m?.[0] ?? key] ?? systemS1;
+  return buildingThreads[m?.[0] ?? key] ?? systemS1;
 }
 
 export const mapArt = {
@@ -35,7 +48,7 @@ export const mapArt = {
   pump: wellArt,
   disposal: disposalArt,
   truck: truckArt,
-  system: systemS1,
+  system: USE_BUILDING_STATION_ICONS ? systemS1 : tankArt,
 } as const;
 
 export const mapBackgrounds = {
@@ -84,11 +97,12 @@ export function MapPin({
   const systemKey = kind === 'system' && badge
     ? (badge.toUpperCase().match(/S[1-5]/)?.[0] ?? badge.toUpperCase())
     : undefined;
-  const system = systemKey ? systemThreads[systemKey] : undefined;
-  const src = system ?? mapArt[kind];
-  // Systems: cover baked S# glyphs with one plate — never also render the chip badge.
+  const useBuilding = USE_BUILDING_STATION_ICONS && Boolean(systemKey);
+  const system = useBuilding && systemKey ? buildingThreads[systemKey] : undefined;
+  const src = system ?? (kind === 'system' ? tankArt : mapArt[kind]);
+  // Buildings: cover baked S# glyphs with one plate. Tanks use the normal badge chip.
   const showSystemPlate = Boolean(system && systemKey);
-  const showBadge = Boolean(badge) && kind !== 'system';
+  const showBadge = Boolean(badge) && !showSystemPlate;
   const half = s / 2;
   const isWide = Boolean(system);
   const useShadow = !system;

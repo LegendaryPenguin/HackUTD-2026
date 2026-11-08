@@ -97,21 +97,23 @@ export default function Alerts() {
                   layout
                   {...fadeUp}
                 >
-                  <div className="alert-inspect-top">
-                    <CategoryChip cat={e.category} />
-                    <span className="chip ghost">{e.system}</span>
-                    <Confidence value={e.confidence} />
-                    <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
-                      <Clock size={12} style={{ verticalAlign: -2 }} /> since ~{fmt.time(e.onset)}
-                    </span>
-                  </div>
-                  <h3>{e.asset}</h3>
-                  <p className="facility">{fmt.short(e.facility)}</p>
-                  <ul>
-                    {e.evidence.map((x) => (
-                      <li key={x}>{x}</li>
-                    ))}
-                  </ul>
+                  <Link to={`/?f=${encodeURIComponent(e.facility)}`} className="alert-inspect-hit" aria-label={`Open ${e.asset} on map`}>
+                    <div className="alert-inspect-top">
+                      <CategoryChip cat={e.category} />
+                      <span className="chip ghost">{e.system}</span>
+                      <Confidence value={e.confidence} />
+                      <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
+                        <Clock size={12} style={{ verticalAlign: -2 }} /> since ~{fmt.time(e.onset)}
+                      </span>
+                    </div>
+                    <h3>{e.asset}</h3>
+                    <p className="facility">{fmt.short(e.facility)}</p>
+                    <ul>
+                      {e.evidence.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ul>
+                  </Link>
                   <div className="alert-inspect-actions">
                     {acked.has(e.id) ? (
                       <span className="chip mint">
@@ -122,7 +124,7 @@ export default function Alerts() {
                         <Send size={13} /> Send inspector
                       </button>
                     )}
-                    <Link to={`/?f=${e.facility}`} className="btn ghost sm">
+                    <Link to={`/?f=${encodeURIComponent(e.facility)}`} className="btn ghost sm">
                       <MapPin size={13} /> Facility
                     </Link>
                     <Link

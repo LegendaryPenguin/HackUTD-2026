@@ -9,7 +9,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { type DrivePoint, type DriveRoad } from '../../lib/driveMap';
 import type { DeliveryStop, DriveDifficulty } from '../../lib/driveMission';
-import { getYardPose, isOnRoad, type RoadRibbon } from '../../lib/driveRoads';
+import { getYardPose, type RoadRibbon } from '../../lib/driveRoads';
+import {
+  plantSolids,
+  roadSegments,
+  stepChassis,
+  wellheadOffsets,
+  type Chassis,
+  type RoadSeg,
+  type Solid,
+} from '../../lib/drivePhysics';
 import {
   buildNatureProps,
   DriveWorld,
@@ -18,6 +27,7 @@ import {
   type NatureProp,
 } from './DriveWorld';
 import { PlantRoads } from './PlantRoads';
+import { WaterTruck } from './WaterTruck';
 
 export type DriveTelemetry = {
   speed: number;
@@ -45,32 +55,11 @@ type SceneProps = {
   lessonOpen?: boolean;
 };
 
-const TRUCK_R = 2.2;
-
 function normAngle(a: number) {
   let x = a;
   while (x > Math.PI) x -= Math.PI * 2;
   while (x < -Math.PI) x += Math.PI * 2;
   return x;
-}
-
-function resolveBlockers(x: number, z: number, blockers: NatureBlocker[], tankHard: { x: number; z: number; r: number }[]) {
-  let nx = x;
-  let nz = z;
-  let hit = false;
-  const all = [...blockers, ...tankHard];
-  for (const b of all) {
-    const dx = nx - b.x;
-    const dz = nz - b.z;
-    const d = Math.hypot(dx, dz);
-    const need = b.r + TRUCK_R;
-    if (d >= need || d < 1e-4) continue;
-    const push = (need - d) / d;
-    nx += dx * push;
-    nz += dz * push;
-    hit = true;
-  }
-  return { x: nx, z: nz, hit };
 }
 
 function TargetBeacon({ point, label }: { point: DrivePoint; label: string }) {
@@ -114,11 +103,11 @@ function TankPad({
 }) {
   return (
     <group position={[point.x, 0, point.z]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
         <circleGeometry args={[10, 28]} />
         <meshBasicMaterial color={delivered ? '#1a2e28' : isNext ? '#1a3038' : '#161c22'} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.14, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.26, 0]}>
         <ringGeometry args={[9, 10.2, 36]} />
         <meshBasicMaterial
           color={delivered ? '#7dcea0' : isNext ? '#5ec8d8' : '#3a4a54'}
@@ -139,6 +128,22 @@ function TankPad({
         <cylinderGeometry args={[2.65, 2.65, 0.35, 20]} />
         <meshStandardMaterial color="#1c2830" metalness={0.4} roughness={0.5} />
       </mesh>
+      {wellheadOffsets(point.x, point.z).map((w) => (
+        <group key={`${w.x}:${w.z}`} position={[w.x, 0, w.z]}>
+          <mesh position={[0, 0.55, 0]}>
+            <cylinderGeometry args={[w.r, w.r * 1.15, 1.1, 8]} />
+            <meshStandardMaterial color="#3a4248" metalness={0.45} roughness={0.5} />
+          </mesh>
+          <mesh position={[0, 1.7, 0]}>
+            <boxGeometry args={[0.18, 1.5, 0.18]} />
+            <meshStandardMaterial color="#6a5438" roughness={0.7} />
+          </mesh>
+          <mesh position={[0.7, 2.45, 0]} rotation={[0, 0, -0.35]}>
+            <boxGeometry args={[1.6, 0.12, 0.16]} />
+            <meshStandardMaterial color="#c4a574" metalness={0.35} roughness={0.45} />
+          </mesh>
+        </group>
+      ))}
       {showLabel && (
         <Html position={[0, 8.6, 0]} center distanceFactor={28} style={{ pointerEvents: 'none' }}>
           <div className={`drive-pin ${delivered ? 'yard' : isNext ? 'target' : ''}`}>
@@ -153,7 +158,7 @@ function TankPad({
 function Yard({ point }: { point: DrivePoint }) {
   return (
     <group position={[point.x, 0, point.z]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
         <planeGeometry args={[24, 18]} />
         <meshBasicMaterial color="#1c2832" />
       </mesh>
@@ -210,7 +215,7 @@ function NavArrow({
   );
 }
 
-/** Stable arcade chassis — no physics engine, no vibration. */
+/** Heading-locked chassis. Grip follows asphalt / pad / dirt. Solids slide. */
 function Truck({
   ribbons,
   stops,
@@ -233,36 +238,45 @@ function Truck({
   const { camera } = useThree();
   const keys = useRef({ f: false, b: false, l: false, r: false });
   const state = useRef({
-    x: 0, z: 0, yaw: 0, speed: 0, steered: false, yawAtReset: 0, arrived: false,
+    x: 0, z: 0, yaw: 0, speed: 0, steer: 0,
+    steered: false, yawAtReset: 0, arrived: false,
     hits: new Set<string>(),
   });
-  const camTarget = useRef(new THREE.Vector3());
-  const lookAt = useRef(new THREE.Vector3());
+  const camPos = useRef(new THREE.Vector3(0, 14, 22));
+  const speedRef = useRef(0);
+  const camLook = useRef(new THREE.Vector3());
   const telemAcc = useRef(0);
   const ribbonsRef = useRef(ribbons);
   const stopsRef = useRef(stops);
   const pointsRef = useRef(points);
   const diffRef = useRef(difficulty);
-  const blockersRef = useRef(blockers);
   const lessonRef = useRef(!!lessonOpen);
   ribbonsRef.current = ribbons;
   stopsRef.current = stops;
   pointsRef.current = points;
   diffRef.current = difficulty;
-  blockersRef.current = blockers;
   lessonRef.current = !!lessonOpen;
 
-  const tankHard = useMemo(
-    () => points.filter((p) => p.kind === 'tank').map((p) => ({ x: p.x, z: p.z, r: 3.2 })),
-    [points],
+  const segs = useMemo(() => roadSegments(ribbons), [ribbons]);
+  const tanks = useMemo(() => plantSolids(points), [points]);
+  const solids = useMemo<Solid[]>(
+    () => [...tanks, ...blockers.map((b) => ({ x: b.x, z: b.z, r: b.r }))],
+    [tanks, blockers],
   );
-  const tankHardRef = useRef(tankHard);
-  tankHardRef.current = tankHard;
+  const segsRef = useRef<RoadSeg[]>(segs);
+  const solidsRef = useRef<Solid[]>(solids);
+  segsRef.current = segs;
+  solidsRef.current = solids;
 
   const yard = points.find((p) => p.kind === 'yard');
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      const driveKey = e.code === 'KeyW' || e.code === 'ArrowUp'
+        || e.code === 'KeyS' || e.code === 'ArrowDown'
+        || e.code === 'KeyA' || e.code === 'ArrowLeft'
+        || e.code === 'KeyD' || e.code === 'ArrowRight';
+      if (driveKey) e.preventDefault();
       if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.current.f = true;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.current.b = true;
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.current.l = true;
@@ -285,7 +299,8 @@ function Truck({
   useEffect(() => {
     const pose = getYardPose(ribbonsRef.current);
     state.current = {
-      x: pose.x, z: pose.z, yaw: pose.yaw, speed: 0, steered: false, yawAtReset: pose.yaw, arrived: false,
+      x: pose.x, z: pose.z, yaw: pose.yaw, speed: 0, steer: 0,
+      steered: false, yawAtReset: pose.yaw, arrived: false,
       hits: new Set(),
     };
     poseRef.current = { x: pose.x, z: pose.z, yaw: pose.yaw };
@@ -301,45 +316,26 @@ function Truck({
     const nextPt = next
       ? pointsRef.current.find((p) => p.id === next.facilityId) ?? null
       : null;
-    const nearPad = nextPt ? Math.hypot(s.x - nextPt.x, s.z - nextPt.z) < d.arriveR + 10 : false;
-    const onPavement = isOnRoad(s.x, s.z, ribbonsRef.current, 1.8) || nearPad;
 
+    const chassis: Chassis = s;
+    let onPavement = true;
     if (playing && !s.arrived && !lessonRef.current) {
-      if (keys.current.f) s.speed = Math.min(d.maxSpeed, s.speed + d.accel * clamped);
-      else if (keys.current.b) s.speed = Math.max(-d.maxSpeed * 0.45, s.speed - 26 * clamped);
-      else {
-        if (s.speed > 0) s.speed = Math.max(0, s.speed - 8 * clamped);
-        if (s.speed < 0) s.speed = Math.min(0, s.speed + 8 * clamped);
-      }
-
-      if (!onPavement && Math.abs(s.speed) > 0.3) {
-        s.speed *= Math.pow(0.5, clamped);
-      }
-
-      const steerAmt = (keys.current.l ? 1 : 0) - (keys.current.r ? 1 : 0);
-      if (Math.abs(s.speed) > 0.35 && steerAmt !== 0) {
-        s.yaw += steerAmt * d.steer * (Math.abs(s.speed) / d.maxSpeed) * clamped;
-        if (Math.abs(s.yaw - s.yawAtReset) > 0.3) s.steered = true;
-      }
-
-      let nx = s.x + Math.sin(s.yaw) * s.speed * clamped;
-      let nz = s.z + Math.cos(s.yaw) * s.speed * clamped;
-
-      // Soft magnet into delivery ring
-      if (nextPt && nearPad) {
-        const dx = nextPt.x - nx;
-        const dz = nextPt.z - nz;
-        const dist = Math.hypot(dx, dz) || 1;
-        if (dist < d.arriveR + 5) {
-          nx += (dx / dist) * 10 * clamped;
-          nz += (dz / dist) * 10 * clamped;
-        }
-      }
-
-      const resolved = resolveBlockers(nx, nz, blockersRef.current, tankHardRef.current);
-      if (resolved.hit) s.speed *= 0.25;
-      s.x = THREE.MathUtils.clamp(resolved.x, -270, 270);
-      s.z = THREE.MathUtils.clamp(resolved.z, -270, 270);
+      const step = stepChassis(
+        chassis,
+        {
+          forward: keys.current.f,
+          back: keys.current.b,
+          left: keys.current.l,
+          right: keys.current.r,
+        },
+        clamped,
+        d,
+        segsRef.current,
+        pointsRef.current,
+        solidsRef.current,
+      );
+      onPavement = step.surface !== 'dirt';
+      if (Math.abs(s.yaw - s.yawAtReset) > 0.3) s.steered = true;
 
       if (next && nextPt && Math.hypot(s.x - nextPt.x, s.z - nextPt.z) < d.arriveR) {
         s.hits.add(next.id);
@@ -352,17 +348,25 @@ function Truck({
       }
     } else {
       s.speed = 0;
+      s.steer = 0;
     }
 
-    // Rock-steady chassis — fixed Y, no pitch noise
     group.current.position.set(s.x, 0, s.z);
     group.current.rotation.set(0, s.yaw, 0);
     poseRef.current = { x: s.x, z: s.z, yaw: s.yaw };
+    speedRef.current = s.speed;
 
-    camTarget.current.set(s.x - Math.sin(s.yaw) * 16, 8.5, s.z - Math.cos(s.yaw) * 16);
-    camera.position.lerp(camTarget.current, 1 - Math.pow(0.0015, clamped));
-    lookAt.current.set(s.x, 2.0, s.z);
-    camera.lookAt(lookAt.current);
+    const behind = 22;
+    const height = 11.5;
+    camPos.current.set(
+      s.x - Math.sin(s.yaw) * behind,
+      height,
+      s.z - Math.cos(s.yaw) * behind,
+    );
+    const follow = 1 - Math.exp(-5.5 * clamped);
+    camera.position.lerp(camPos.current, follow);
+    camLook.current.set(s.x + Math.sin(s.yaw) * 8, 1.7, s.z + Math.cos(s.yaw) * 8);
+    camera.lookAt(camLook.current);
 
     telemAcc.current += clamped;
     if (telemAcc.current >= 0.1) {
@@ -385,29 +389,7 @@ function Truck({
 
   return (
     <group ref={group}>
-      <mesh position={[0, 1.35, 0.9]}>
-        <boxGeometry args={[2.2, 1.5, 2.2]} />
-        <meshStandardMaterial color="#7ad4e4" emissive="#2a6070" emissiveIntensity={0.5} metalness={0.3} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 1.45, -2.4]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[1.05, 1.05, 4.6, 14]} />
-        <meshStandardMaterial color="#2c3a44" metalness={0.55} roughness={0.32} />
-      </mesh>
-      <mesh position={[0, 0.55, -0.6]}>
-        <boxGeometry args={[2.0, 0.35, 6.2]} />
-        <meshStandardMaterial color="#121a20" metalness={0.4} roughness={0.6} />
-      </mesh>
-      {[
-        [1.05, 0.45, 1.4], [-1.05, 0.45, 1.4],
-        [1.05, 0.45, -1.2], [-1.05, 0.45, -1.2],
-        [1.05, 0.45, -3.4], [-1.05, 0.45, -3.4],
-      ].map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.45, 0.45, 0.35, 10]} />
-          <meshStandardMaterial color="#0a0e12" roughness={0.9} />
-        </mesh>
-      ))}
-      <spotLight position={[0, 1.4, 2.2]} angle={0.45} penumbra={0.5} intensity={20} distance={42} color="#dff6ff" />
+      <WaterTruck speedRef={speedRef} />
     </group>
   );
 }
@@ -476,9 +458,9 @@ export function DriveScene(props: SceneProps) {
   return (
     <Canvas
       shadows={false}
-      camera={{ position: [0, 14, 22], fov: 55, near: 0.1, far: 560 }}
-      dpr={[1, 1.25]}
-      gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
+      camera={{ position: [0, 12, 24], fov: 48, near: 0.2, far: 560 }}
+      dpr={[1, 1.5]}
+      gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
     >
       <WorldInner {...props} />
     </Canvas>

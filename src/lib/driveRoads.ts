@@ -34,7 +34,7 @@ export function makeRibbon(
     const b = pts[1];
     pts.splice(1, 0, a.clone().lerp(b, 0.5));
   }
-  const curve = new THREE.CatmullRomCurve3(pts, closed, 'catmullrom', 0.35);
+  const curve = new THREE.CatmullRomCurve3(pts, closed, 'catmullrom', 0.12);
   const samples = curve.getSpacedPoints(Math.max(12, divisions));
   const tangents = samples.map((_, i) => {
     const t = i / Math.max(1, samples.length - (closed ? 0 : 1));
@@ -238,39 +238,131 @@ export function activeRibbonPath(
   return ids;
 }
 
-export function buildRibbonGeometry(samples: THREE.Vector3[], halfWidth: number, closed: boolean): THREE.BufferGeometry {
-  const pts = closed && samples.length > 2
-    ? [...samples, samples[0].clone(), samples[1].clone()]
-    : samples;
-  const left: THREE.Vector3[] = [];
-  const right: THREE.Vector3[] = [];
-  for (let i = 0; i < pts.length; i++) {
-    const prev = pts[Math.max(0, i - 1)];
-    const next = pts[Math.min(pts.length - 1, i + 1)];
-    const tan = next.clone().sub(prev).setY(0);
-    if (tan.lengthSq() < 1e-8) tan.set(0, 0, 1);
-    else tan.normalize();
-    const side = new THREE.Vector3(-tan.z, 0, tan.x).multiplyScalar(halfWidth);
-    left.push(pts[i].clone().add(side));
-    right.push(pts[i].clone().sub(side));
+function pathMiters(samples: THREE.Vector3[], closed: boolean) {
+  const n = samples.length;
+  const side: THREE.Vector3[] = [];
+  for (let i = 0; i < n; i++) {
+    const i0 = closed ? (i - 1 + n) % n : Math.max(0, i - 1);
+    const i1 = closed ? (i + 1) % n : Math.min(n - 1, i + 1);
+    const t = new THREE.Vector3().subVectors(samples[i1], samples[i0]);
+    t.y = 0;
+    if (t.lengthSq() < 1e-8) t.set(0, 0, 1);
+    else t.normalize();
+    side.push(new THREE.Vector3(-t.z, 0, t.x));
   }
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  let dist = 0;
-  for (let i = 0; i < left.length; i++) {
-    if (i > 0) dist += left[i].distanceTo(left[i - 1]);
-    positions.push(left[i].x, 0.08, left[i].z, right[i].x, 0.08, right[i].z);
-    uvs.push(0, dist * 0.15, 1, dist * 0.15);
-    if (i < left.length - 1) {
-      const a = i * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  for (let i = 1; i < n; i++) {
+    if (side[i].dot(side[i - 1]) < 0) side[i].negate();
+  }
+  if (closed && n > 2 && side[0].dot(side[n - 1]) < 0) side[0].negate();
+
+  const miter: THREE.Vector3[] = [];
+  const scale: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const s0 = side[closed ? (i - 1 + n) % n : Math.max(0, i - 1)];
+    const s1 = side[i];
+    const bis = s0.clone().add(s1);
+    if (bis.lengthSq() < 1e-6) {
+      miter.push(s1.clone());
+      scale.push(1);
+      continue;
     }
+    bis.normalize();
+    if (bis.dot(s1) < 0) bis.negate();
+    miter.push(bis);
+    scale.push(Math.min(1.2, 1 / Math.max(0.68, bis.dot(s1))));
+  }
+  return { miter, scale };
+}
+
+/** Flat road strip. `lateral` shifts the center; width is `halfWidth` each side. Normals face up. */
+export function buildPathStrip(
+  samples: THREE.Vector3[],
+  closed: boolean,
+  lateral: number,
+  halfWidth: number,
+  y: number,
+): THREE.BufferGeometry {
+  const n = samples.length;
+  const { miter, scale } = pathMiters(samples, closed);
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = samples[i];
+    const offL = (lateral + halfWidth) * scale[i];
+    const offR = (lateral - halfWidth) * scale[i];
+    const m = miter[i];
+    positions.push(p.x + m.x * offL, y, p.z + m.z * offL);
+    positions.push(p.x + m.x * offR, y, p.z + m.z * offR);
+  }
+  const quads = closed ? n : n - 1;
+  for (let i = 0; i < quads; i++) {
+    const a = i * 2;
+    const b = ((i + 1) % n) * 2;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function buildRibbonGeometry(samples: THREE.Vector3[], halfWidth: number, closed: boolean): THREE.BufferGeometry {
+  return buildPathStrip(samples, closed, 0, halfWidth, 0.08);
+}
+
+/** Yellow center dashes that follow the polyline instead of a stretched texture. */
+export function buildCenterDashes(samples: THREE.Vector3[], closed: boolean, y: number): THREE.BufferGeometry {
+  const n = samples.length;
+  const segCount = closed ? n : n - 1;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const dash = 2.5;
+  const gap = 2.1;
+  const period = dash + gap;
+  const halfW = 0.14;
+  let cursor = 0;
+  for (let i = 0; i < segCount; i++) {
+    const a = samples[i];
+    const b = samples[(i + 1) % n];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 0.08) continue;
+    const tx = dx / len;
+    const tz = dz / len;
+    const sx = -tz;
+    const sz = tx;
+    let traveled = 0;
+    while (traveled < len - 1e-4) {
+      const phase = (cursor + traveled) % period;
+      const remain = len - traveled;
+      if (phase < dash) {
+        const L = Math.min(dash - phase, remain);
+        if (L > 0.4) {
+          const ax = a.x + tx * traveled;
+          const az = a.z + tz * traveled;
+          const bx = a.x + tx * (traveled + L);
+          const bz = a.z + tz * (traveled + L);
+          const base = positions.length / 3;
+          positions.push(
+            ax + sx * halfW, y, az + sz * halfW,
+            ax - sx * halfW, y, az - sz * halfW,
+            bx + sx * halfW, y, bz + sz * halfW,
+            bx - sx * halfW, y, bz - sz * halfW,
+          );
+          indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+        }
+        traveled += L;
+      } else {
+        traveled += Math.min(period - phase, remain);
+      }
+    }
+    cursor += len;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  if (indices.length) geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
 }

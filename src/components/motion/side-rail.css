@@ -17,22 +17,23 @@
   gap: 8px;
   padding: 9px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(10, 12, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 14, 18, 0.28);
   color: var(--ink-0);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 .rail-fab:hover {
   transform: translateY(-1px);
   border-color: rgba(132, 241, 180, 0.35);
-  background: rgba(14, 18, 16, 0.96);
+  background: rgba(14, 18, 16, 0.4);
 }
 .rail-fab-badge {
   font-style: normal;
@@ -60,13 +61,15 @@
   display: flex;
   flex-direction: column;
   padding: 18px 14px 16px;
-  background: #0b0e11;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-right: 0;
+  box-shadow: none;
   z-index: 24;
   overflow: hidden;
   transform: translateX(0);
-  transition: transform 0.55s cubic-bezier(0.22, 0.9, 0.25, 1);
+  transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.25, 1);
 }
 .side-rail::before {
   content: '';
@@ -75,10 +78,13 @@
   pointer-events: none;
   background: radial-gradient(
     220px circle at var(--rail-x, 30%) var(--rail-y, 20%),
-    rgba(132, 241, 180, 0.16),
+    rgba(132, 241, 180, 0.08),
     transparent 60%
   );
   z-index: 0;
+}
+.shell.map-mode .side-rail::before {
+  display: none;
 }
 
 .side-rail.is-closed {
@@ -263,12 +269,13 @@
   margin-top: auto;
   padding: 12px;
   border-radius: 14px;
-  background: #0e1114;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(8, 14, 20, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: none;
 }
 .rail-watch.is-hot {
-  border-color: rgba(255, 49, 49, 0.32);
-  background: linear-gradient(165deg, rgba(40, 14, 14, 0.55), #0e1114 70%);
+  border-color: rgba(255, 49, 49, 0.28);
+  background: rgba(40, 14, 14, 0.18);
 }
 
 .rail-watch-head {
@@ -355,16 +362,17 @@
 /* Terrain pulls back under the drawer — stays cropped, no black frame */
 .map-parallax {
   position: absolute;
-  inset: -12%;
-  transform-origin: 60% 48%;
-  transition: transform 0.7s cubic-bezier(0.22, 0.9, 0.25, 1);
+  inset: -6%;
+  transform-origin: 50% 50%;
+  transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.25, 1);
   will-change: transform;
 }
 .shell.is-rail-closed .map-parallax {
-  transform: scale(1);
+  transform: none;
 }
 .shell.is-rail-open .map-parallax {
-  transform: perspective(1400px) translate3d(42px, 12px, 0) rotateY(5deg) scale(0.96);
+  /* Thin open animation — map barely shifts */
+  transform: translate3d(8px, 0, 0) scale(0.995);
 }
 @media (prefers-reduced-motion: reduce) {
   .map-parallax,

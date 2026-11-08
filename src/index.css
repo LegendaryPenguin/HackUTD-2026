@@ -132,9 +132,10 @@ a:hover { color: var(--ink-0); }
   grid-row: 1;
   display: flex; align-items: center; gap: 14px;
   padding: 0 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(8, 10, 12, 0.92);
-  backdrop-filter: blur(12px);
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   z-index: 20;
   min-width: 0;
 }
@@ -150,11 +151,29 @@ a:hover { color: var(--ink-0); }
   grid-row: 2;
   overflow: auto;
   position: relative;
+  /* no z-index — keeps position:fixed triage above the tide-dock */
   min-width: 0;
   min-height: 0;
-  transition: padding-left 0.55s cubic-bezier(0.22, 0.9, 0.25, 1);
+  transition: padding-left 0.28s cubic-bezier(0.22, 0.9, 0.25, 1);
 }
 .shell.is-rail-open .main { padding-left: var(--nav-open); }
+/* Map stays full-bleed under the clear sidebar (no black strip / blur behind the rail) */
+.shell.map-mode.is-rail-open .main { padding-left: 0; }
+/* Clear the floating MENU button when the rail is tucked away */
+.shell.map-mode.is-rail-closed .map-float-tl {
+  left: 126px;
+  max-width: min(520px, calc(100% - 360px));
+}
+.shell.map-mode.is-rail-closed .map-float-bl {
+  left: 14px;
+}
+.shell.map-mode.is-rail-open .map-float-tl {
+  left: calc(var(--nav-open) + 14px);
+  max-width: min(520px, calc(100% - var(--nav-open) - 240px));
+}
+.shell.map-mode.is-rail-open .map-float-bl {
+  left: calc(var(--nav-open) + 14px);
+}
 .page { padding: 22px 26px 60px; max-width: 1500px; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .page-title {
@@ -180,6 +199,49 @@ a:hover { color: var(--ink-0); }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--blush);
+}
+
+/* ---------- field backdrop (shifts look, all views except map/tycoon) ---------- */
+.field-stage-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.field-stage-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 40%;
+  background-repeat: no-repeat;
+  filter: none;
+}
+.field-stage-veil {
+  /* no wash — show the oilfield photo full-strength */
+  display: none;
+}
+/* Kill the solid black body nest while the field photo is up */
+body:has(.shell.field-backdrop)::before {
+  display: none;
+}
+.shell.field-backdrop .main {
+  background: transparent;
+}
+.shell.field-backdrop .side-rail,
+.shell.map-mode .side-rail {
+  /* fully clear — background / map shows through, no blur, no divider line */
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-right: 0;
+  box-shadow: none;
+}
+.shell.field-backdrop .tide-ambient {
+  display: none;
+}
+.shell.drive-mode .tide-ambient {
+  display: none;
 }
 
 /* ---------- ambient layer ---------- */
@@ -701,14 +763,29 @@ a:hover { color: var(--ink-0); }
   .page-head > div:last-child, .card-title { flex-wrap: wrap; }
   .card-title .muted { margin-left: 0; width: 100%; }
 
-  /* Map phone layout: filters top, finances above timeline, no side clip */
-  .map-float-tl {
-    top: 8px;
-    left: 8px;
-    right: 8px;
+  /* Map phone layout: filters top, finances above timeline, no side clip.
+     MENU fab is hidden here, so chips can sit flush left again. */
+  .map-screen,
+  .map-stage {
+    touch-action: manipulation;
+  }
+  .shell.map-mode .map-stage {
+    padding-bottom: calc(var(--map-rail-h, 96px) + var(--nav-bottom-h, 60px) + 10px);
+  }
+  .map-svg {
+    /* Keep clusters readable on tall phone screens */
+    max-height: none;
+    height: 100%;
+  }
+  .map-float-tl,
+  .shell.map-mode.is-rail-closed .map-float-tl {
+    top: 6px;
+    left: 6px;
+    right: 6px;
     max-width: none;
     width: auto;
     z-index: 7;
+    gap: 6px;
   }
   .map-float-tl .seg {
     max-width: 100%;
@@ -716,36 +793,66 @@ a:hover { color: var(--ink-0); }
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     flex-wrap: nowrap;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(6, 14, 22, 0.55);
   }
   .map-float-tl .seg::-webkit-scrollbar { display: none; }
-  .map-float-tl .seg button { padding: 6px 10px; font-size: 11px; flex-shrink: 0; }
+  .map-float-tl .seg button {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 36px;
+    flex-shrink: 0;
+  }
   .map-status-chips {
     max-width: 100%;
     overflow-x: auto;
     flex-wrap: nowrap;
     scrollbar-width: none;
+    gap: 6px;
   }
   .map-status-chips::-webkit-scrollbar { display: none; }
   .map-status-chips .chip.ghost { display: none; }
+  .map-status-chips .btn {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
 
   .map-float-tr {
     top: auto !important;
-    right: 8px !important;
-    left: 8px;
-    bottom: calc(8px + var(--map-rail-h, 96px));
+    right: 6px !important;
+    left: 6px;
+    bottom: calc(6px + var(--map-rail-h, 96px));
     max-width: none !important;
     width: auto;
     z-index: 8;
   }
 
   .map-float-rail {
-    left: 6px;
-    right: 6px;
-    bottom: 6px;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
   }
   .map-float-bl.map-legend { display: none; }
 
-  .triage-scrim, .calc-scrim { padding: 10px; align-items: flex-end; }
+  .triage-scrim, .calc-scrim {
+    padding: 8px;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .shell.is-rail-open .triage-scrim,
+  .shell.is-rail-open .calc-scrim {
+    padding-left: 8px;
+  }
+  .triage-card,
+  .triage-card--reflective {
+    width: min(100%, 560px);
+    max-height: min(78dvh, 720px);
+  }
+  .night-reflective {
+    max-width: 100%;
+  }
   .cost-strip { grid-template-columns: 1fr; }
   .event-row { grid-template-columns: 1fr; }
   .grid.c2 { grid-template-columns: 1fr; }

@@ -19,8 +19,6 @@ import {
   type CrewState,
 } from '../lib/crew';
 import { CATEGORY_LABEL, fmt } from '../lib/model';
-import fieldBg from '../assets/night-tide/backgrounds/moonlit-oilfield.png';
-
 export default function Crew() {
   const { dataset, analysis, now, setNow, liveNow } = useStore();
 
@@ -122,9 +120,7 @@ export default function Crew() {
 
   return (
     <div className="page crew-page">
-      <div className="crew-stage" style={{ backgroundImage: `url(${fieldBg})` }}>
-        <div className="crew-stage-veil" />
-
+      <div className="crew-stage">
         <header className="crew-top">
           <div>
             <h1 className="crew-simple-title">Shifts</h1>
@@ -229,7 +225,6 @@ export default function Crew() {
             )}
             <div className="crew-panel-actions">
               <Link to="/alerts" className="btn primary sm">Open alerts</Link>
-              <Link to="/log" className="btn ghost sm">Shift log</Link>
               <Link to="/" className="btn ghost sm"><MapPin size={13} /> Map</Link>
             </div>
           </section>

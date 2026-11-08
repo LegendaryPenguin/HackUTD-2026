@@ -334,7 +334,7 @@
   padding: 16px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  background: linear-gradient(165deg, rgba(12, 16, 14, 0.94), rgba(5, 8, 7, 0.98));
+  background: linear-gradient(165deg, rgba(12, 16, 14, 0.96), rgba(5, 8, 7, 0.98));
   color: inherit;
   transition: border-color 0.18s ease, transform 0.18s ease;
 }
