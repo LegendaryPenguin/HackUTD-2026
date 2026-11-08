@@ -31,3 +31,6 @@ docs/scenario_sweeps/*_all.json
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*
