@@ -8,6 +8,8 @@ import type { FailureContext } from '../lib/types';
 import { TankGauge } from '../components/TankGauge';
 import { CategoryChip, Confidence, Countdown, fadeUp } from '../components/ui';
 import { TruckIcon } from '../components/Icons';
+import type { DispatchedPlan } from '../lib/dispatch';
+import { planStillActive } from '../lib/dispatch';
 
 export default function Alerts() {
   const { dataset, analysis, acked, ack, dispatched, dispatch, now } = useStore();
@@ -61,7 +63,7 @@ export default function Alerts() {
           <div className="grid" style={{ marginBottom: 26 }}>
             <AnimatePresence initial={false}>
               {failures.map((c, i) => (
-                <FailureCard key={c.event.id} ctx={c} rank={i + 1} limits={limits} dispatched={dispatched[c.event.id]} onDispatch={(l) => dispatch(c.event.id, l)} />
+                <FailureCard key={c.event.id} ctx={c} rank={i + 1} limits={limits} dispatched={dispatched[c.event.id]} onDispatch={() => dispatch(c.event.id)} />
               ))}
             </AnimatePresence>
           </div>
@@ -96,7 +98,7 @@ export default function Alerts() {
                     ) : (
                       <button className="btn primary sm" onClick={() => ack(e.id)}><Send size={13} /> Send inspector</button>
                     )}
-                    <Link to={`/network?f=${e.facility}`} className="btn ghost sm"><MapPin size={13} /> Facility</Link>
+                    <Link to={`/?f=${e.facility}`} className="btn ghost sm"><MapPin size={13} /> Facility</Link>
                     <Link to={`/trends?preset=${e.category === 'pipeline_leak' ? 'leak' : 'pump'}&f=${e.facility}`} className="btn ghost sm">Trend <ArrowRight size={13} /></Link>
                   </div>
                 </motion.div>
@@ -133,33 +135,46 @@ export default function Alerts() {
 
 function FailureCard({ ctx, rank, limits, dispatched, onDispatch }: {
   ctx: FailureContext; rank: number; limits: { warning: number; shutdown: number };
-  dispatched?: string; onDispatch: (label: string) => void;
+  dispatched?: DispatchedPlan; onDispatch: () => void;
 }) {
-  const { dataset, analysis } = useStore();
+  const { dataset, analysis, now } = useStore();
   if (!dataset || !analysis) return null;
   const e = ctx.event;
   const sp = analysis.systemPlans[e.system];
-  const plan = sp?.plans[e.id];
+  const plan = dispatched?.plan ?? sp?.plans[e.id];
   const repairEnd = e.onset + dataset.ops.expected_repair_hours.pump_failure * 3600;
   const shares = sp && Object.keys(sp.plans).length > 1 ? Object.keys(sp.plans).filter((id) => id !== e.id) : [];
   const saving = ctx.doNothingCost - (plan?.cost ?? 0);
-  const urgent = ctx.hoursToLimit < 1.5;
+  const live = dispatched && planStillActive(dispatched, now);
+  const m = live ? Math.min(Math.floor((now - dispatched.commitUnix) / 60), dispatched.levelTracePct.length - 1) : 0;
+  const levelPct = live ? dispatched.levelTracePct[m] : ctx.levelPct;
+  const shutWells = new Set(live ? dispatched.plan.shutIns.filter((s) => s.startMin <= m).map((s) => s.well) : []);
+  if (live && dispatched.plan.tripAt != null && m >= dispatched.plan.tripAt) {
+    for (const id of dispatched.producingWells) shutWells.add(id);
+  }
+  const liveInflow = live
+    ? ctx.facility.wells.filter((w) => dispatched.producingWells.includes(w.id) && !shutWells.has(w.id)).reduce((a, w) => a + w.baseline_water_bpd, 0)
+    : ctx.inflowBpd;
+  const urgent = !live && ctx.hoursToLimit < 1.5;
 
   return (
-    <motion.div layout className="card" {...fadeUp} style={{ borderColor: urgent ? 'rgba(251,113,133,.45)' : undefined }}>
+    <motion.div layout className="card" {...fadeUp} style={{ borderColor: urgent ? 'rgba(251,113,133,.45)' : live ? 'rgba(45,212,191,.35)' : undefined }}>
       {urgent && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 0 1px rgba(251,113,133,.25), inset 0 0 60px rgba(251,113,133,.08)' }} />}
       <div className="fail-grid">
         <div className="big" style={{ fontSize: 34, color: urgent ? 'var(--coral)' : 'var(--ink-2)', width: 36 }}>{rank}</div>
-        <TankGauge level={ctx.levelPct} warn={limits.warning} shut={limits.shutdown} failed label={ctx.facility.tank.id} />
+        <TankGauge level={levelPct} warn={limits.warning} shut={limits.shutdown} failed label={ctx.facility.tank.id} />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div className="big" style={{ fontSize: 20 }}>{fmt.short(ctx.facility.id)}</div>
             <span className="chip ghost">{e.system}</span>
             <CategoryChip cat="pump_failure" pulse />
-            <Countdown hours={ctx.hoursToLimit} tripsAt={ctx.tripsAtUnix} />
+            {live ? <span className="chip mint">plan +{m} min</span> : <Countdown hours={ctx.hoursToLimit} tripsAt={ctx.tripsAtUnix} />}
           </div>
           <div className="muted" style={{ marginTop: 6, fontSize: 12.5 }}>
-            {e.asset} failed {fmt.time(e.onset)} · repair ends <b style={{ color: 'var(--ink-0)' }}>{fmt.time(repairEnd)}</b> ({fmt.durMin(ctx.horizonMin)} left) · filling {fmt.num(ctx.inflowBpd / 24, 0)} bbl/h from {ctx.producingWells.length}/{ctx.facility.wells.length} wells · {fmt.money(ctx.revPerHour)}/h at stake
+            {e.asset} failed {fmt.time(e.onset)} · repair ends <b style={{ color: 'var(--ink-0)' }}>{fmt.time(repairEnd)}</b>
+            {live
+              ? <> · <b style={{ color: 'var(--mint)' }}>plan live</b> tank {levelPct.toFixed(1)}% · filling {fmt.num(liveInflow / 24, 0)} bbl/h</>
+              : <> ({fmt.durMin(ctx.horizonMin)} left) · filling {fmt.num(ctx.inflowBpd / 24, 0)} bbl/h from {ctx.producingWells.length}/{ctx.facility.wells.length} wells · {fmt.money(ctx.revPerHour)}/h at stake</>}
           </div>
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: 'var(--aqua-dim)', border: '1px solid rgba(45,212,191,.3)' }}>
@@ -189,12 +204,15 @@ function FailureCard({ ctx, rank, limits, dispatched, onDispatch }: {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', minWidth: 150 }}>
           {dispatched ? (
-            <span className="chip mint" style={{ justifyContent: 'center', padding: '8px 10px' }}><CheckCircle2 size={13} /> Dispatched</span>
+            <span className="chip mint tip" style={{ justifyContent: 'center', padding: '8px 10px' }}>
+              <CheckCircle2 size={13} /> {dispatched.label}
+              <span className="tipbox">Live stats follow this plan when you scrub forward. Pump fault stays from sensors.</span>
+            </span>
           ) : (
-            <button className="btn primary" onClick={() => onDispatch(plan?.label ?? 'wait')}><Send size={14} /> Dispatch plan</button>
+            <button className="btn primary" onClick={onDispatch}><Send size={14} /> Dispatch plan</button>
           )}
           <Link to={`/plan/${e.id}`} className="btn">Compare options <ArrowRight size={14} /></Link>
-          <Link to={`/network?f=${ctx.facility.id}`} className="btn ghost sm"><MapPin size={13} /> Show on map</Link>
+          <Link to={`/?f=${ctx.facility.id}`} className="btn ghost sm"><MapPin size={13} /> Show on map</Link>
         </div>
       </div>
     </motion.div>

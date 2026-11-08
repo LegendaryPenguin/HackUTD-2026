@@ -1,21 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, YAxis } from 'recharts';
 import { ArrowRight, Maximize2, X } from 'lucide-react';
-import terrain from '../assets/terrain.jpg';
 import { useStore } from '../state/store';
-import { facilities, fmt, indexAt } from '../lib/model';
+import { facilities, fmt, hoursToLimit, indexAt } from '../lib/model';
 import type { FacilityCtx, System } from '../lib/types';
 import { liveFacility, statusColor, statusLabel, type LiveFacility } from '../lib/status';
-import { DisposalIcon, PipelineIcon, PumpIcon, TankIcon, TruckIcon, WellIcon } from '../components/Icons';
+import { applyDispatchOverlay, dispatchForFacility } from '../lib/dispatch';
+import { MapPin, facilityBadge, mapArt, mapBackgrounds, wellBadge } from '../components/MapMarkers';
 import { TankGauge } from '../components/TankGauge';
 import { CategoryChip, Confidence, Meter } from '../components/ui';
 
-const W = 1000, H = 620;
+const W = 1100, H = 720;
+const FIELD_BG = mapBackgrounds.moonlit;
+/** Enchantress-scale: ~9–12% of map width at zoom 1. */
+const PIN = { facility: 108, facilityFocus: 118, facilityHot: 128, hub: 96, hubFocus: 110, well: 52 } as const;
 
-/** equirectangular projection into the SVG box, lon scaled by cos(mean lat) */
-function makeProj(points: [number, number][], pad = 70) {
+/** equirectangular projection into the SVG box using real lat/lon (no schematic spread). */
+function makeProj(points: [number, number][], pad = 80) {
   const lat0 = points.reduce((a, p) => a + p[0], 0) / points.length;
   const k = Math.cos((lat0 * Math.PI) / 180);
   const xs = points.map((p) => p[1] * k), ys = points.map((p) => p[0]);
@@ -26,7 +29,7 @@ function makeProj(points: [number, number][], pad = 70) {
 }
 
 export default function Network() {
-  const { dataset, analysis, now } = useStore();
+  const { dataset, analysis, now, dispatched } = useStore();
   const [params, setParams] = useSearchParams();
   const [hover, setHover] = useState<string | null>(null);
   const [manualFocus, setManualFocus] = useState<string | null>(null);
@@ -35,36 +38,23 @@ export default function Network() {
   const facs = useMemo(() => (dataset ? facilities(dataset.network, dataset.ops) : []), [dataset]);
   const live = useMemo(() => {
     if (!dataset || !analysis) return new Map<string, LiveFacility>();
-    return new Map(facs.map((f) => [f.id, liveFacility(dataset, f, now, analysis.ongoing)]));
-  }, [dataset, analysis, facs, now]);
+    return new Map(facs.map((f) => {
+      let L = liveFacility(dataset, f, now, analysis.ongoing);
+      const d = dispatchForFacility(dispatched, f.id);
+      if (d) L = applyDispatchOverlay(L, d, now, dataset);
+      return [f.id, L] as const;
+    }));
+  }, [dataset, analysis, facs, now, dispatched]);
 
-  // Schematic layout: real positions, but each system's local cluster (facilities + disposal) is
-  // spread out around its center so the markers don't overlap at the all-systems zoom.
+  // True geographic positions from network.json (facility / disposal / truck yard lat-lon).
   const proj = useMemo(() => {
     if (!dataset) return null;
-    const SPREAD = 2.4;
-    const centerOf = new Map<string, [number, number]>();
-    const spreadPt = (s: System, lat: number, lon: number): [number, number] => {
-      const c = centerOf.get(s.id)!;
-      return [c[0] + (lat - c[0]) * SPREAD, c[1] + (lon - c[1]) * SPREAD];
-    };
     const pts: [number, number][] = [];
     for (const s of dataset.network.systems) {
-      const members: [number, number][] = [[s.disposal_site.lat, s.disposal_site.lon], ...s.facilities.map((f) => [f.lat, f.lon] as [number, number])];
-      centerOf.set(s.id, [members.reduce((a, p) => a + p[0], 0) / members.length, members.reduce((a, p) => a + p[1], 0) / members.length]);
-      pts.push(spreadPt(s, s.disposal_site.lat, s.disposal_site.lon), [s.truck_yard[0], s.truck_yard[1]]);
-      for (const f of s.facilities) pts.push(spreadPt(s, f.lat, f.lon));
+      pts.push([s.disposal_site.lat, s.disposal_site.lon], [s.truck_yard[0], s.truck_yard[1]]);
+      for (const f of s.facilities) pts.push([f.lat, f.lon]);
     }
-    const base = makeProj(pts);
-    const ownerOf = new Map<string, System>();
-    for (const s of dataset.network.systems) {
-      ownerOf.set(`${s.disposal_site.lat},${s.disposal_site.lon}`, s);
-      for (const f of s.facilities) ownerOf.set(`${f.lat},${f.lon}`, s);
-    }
-    return (lat: number, lon: number): [number, number] => {
-      const s = ownerOf.get(`${lat},${lon}`);
-      return s ? base(...spreadPt(s, lat, lon)) : base(lat, lon);
-    };
+    return makeProj(pts);
   }, [dataset]);
 
   if (!dataset || !analysis || !proj) return null;
@@ -79,9 +69,10 @@ export default function Network() {
   let transform = { x: 0, y: 0, k: 1 };
   if (focusSys) {
     const pts = [proj(focusSys.disposal_site.lat, focusSys.disposal_site.lon), proj(focusSys.truck_yard[0], focusSys.truck_yard[1]), ...focusSys.facilities.map((f) => proj(f.lat, f.lon))];
-    const minX = Math.min(...pts.map((p) => p[0])) - 60, maxX = Math.max(...pts.map((p) => p[0])) + 60;
-    const minY = Math.min(...pts.map((p) => p[1])) - 60, maxY = Math.max(...pts.map((p) => p[1])) + 60;
-    const k = Math.min(W / (maxX - minX), H / (maxY - minY), 3.2);
+    const pad = 140; // room for large stickers + well orbit
+    const minX = Math.min(...pts.map((p) => p[0])) - pad, maxX = Math.max(...pts.map((p) => p[0])) + pad;
+    const minY = Math.min(...pts.map((p) => p[1])) - pad, maxY = Math.max(...pts.map((p) => p[1])) + pad;
+    const k = Math.min(W / (maxX - minX), H / (maxY - minY), 2.6);
     transform = { k, x: W / 2 - ((minX + maxX) / 2) * k, y: H / 2 - ((minY + maxY) / 2) * k };
   }
   const selected = selectedId ? live.get(selectedId) ?? null : null;
@@ -89,14 +80,25 @@ export default function Network() {
   const counts = { failure: 0, leak: 0, wear: 0, warning: 0, normal: 0 } as Record<string, number>;
   for (const l of live.values()) counts[l.status]++;
 
+  const needYou = counts.failure + counts.leak + counts.wear;
+
   return (
-    <div className="page" style={{ maxWidth: 1600 }}>
+    <div className="page map-home" style={{ maxWidth: 1680 }}>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Network</h1>
-          <p className="page-sub">{dataset.network.systems.length} systems · {facs.length} facilities · every pipeline ends at its system’s disposal site</p>
+          <h1 className="page-title">Field map</h1>
+          <p className="page-sub">
+            {needYou === 0
+              ? `All quiet across ${facs.length} facilities · pins are real locations`
+              : `${needYou} site${needYou === 1 ? '' : 's'} need you · glow marks trouble · click a pin to dig in`}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {needYou > 0 && (
+            <Link to="/alerts" className="btn primary sm">
+              Open alerts <ArrowRight size={13} />
+            </Link>
+          )}
           {(['failure', 'leak', 'wear', 'warning', 'normal'] as const).map((s) => (
             <span key={s} className="chip ghost" style={{ color: counts[s] ? statusColor[s] : undefined, opacity: counts[s] ? 1 : 0.5 }}>
               <i className="dot" style={{ background: statusColor[s] }} /> {counts[s]} {statusLabel[s].toLowerCase()}
@@ -106,7 +108,8 @@ export default function Network() {
       </div>
 
       <div className="split" style={{ gridTemplateColumns: selected ? 'minmax(0,1fr) 400px' : '1fr' }}>
-        <div className="card" style={{ position: 'relative' }}>
+        <div className="card map-stage" style={{ position: 'relative' }}>
+          <div className="map-mist" aria-hidden />
           <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <div className="seg">
               <button className={!sysFocus ? 'on' : ''} onClick={() => { setSysFocus(null); }}><Maximize2 size={12} style={{ verticalAlign: -2, marginRight: 4 }} />All</button>
@@ -120,24 +123,24 @@ export default function Network() {
               })}
             </div>
           </div>
-          <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, display: 'flex', gap: 14, fontSize: 11, color: 'var(--ink-2)', padding: '6px 10px', borderRadius: 10, background: 'rgba(8,14,26,.6)', backdropFilter: 'blur(6px)' }}>
-            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> water flowing</span>
-            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--ink-3)" strokeWidth="2" /></svg> pump off</span>
-            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leaking</span>
-            <span><DisposalIcon size={12} /> disposal</span>
-            <span><TruckIcon size={12} /> truck yard</span>
+          <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 5, display: 'flex', gap: 12, fontSize: 11, color: 'var(--ink-2)', padding: '8px 12px', borderRadius: 14, background: 'rgba(7,19,28,.72)', backdropFilter: 'blur(8px)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <LegendChip src={mapArt.tank} label="facility" />
+            <LegendChip src={mapArt.well} label="well" />
+            <LegendChip src={mapArt.disposal} label="disposal" />
+            <LegendChip src={mapArt.truck} label="truck yard" />
+            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--aqua)" strokeWidth="2" strokeDasharray="6 4" /></svg> flowing</span>
+            <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--amber)" strokeWidth="2" strokeDasharray="3 3" /></svg> leak</span>
           </div>
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 16, background: `url(${terrain}) center/cover` }}>
+          <svg viewBox={`0 0 ${W} ${H}`} className="map-svg" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 18, background: `url(${FIELD_BG}) center/cover` }}>
             <defs>
               <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="3" result="b" />
                 <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
-              <radialGradient id="siteGlow"><stop offset="0%" stopColor="var(--aqua)" stopOpacity=".35" /><stop offset="100%" stopColor="var(--aqua)" stopOpacity="0" /></radialGradient>
             </defs>
             <g style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`, transformOrigin: '0 0', transformBox: 'view-box', transition: 'transform .75s cubic-bezier(.2,.8,.2,1)' }}>
               {dataset.network.systems.map((s) => (
-                <SystemLayer key={s.id} sys={s} proj={proj} live={live} hover={hover} setHover={setHover} selected={selectedId} onSelect={(id) => setParams({ f: id })} dim={!!sysFocus && sysFocus !== s.id} k={transform.k} />
+                <SystemLayer key={s.id} sys={s} proj={proj} live={live} hover={hover} setHover={setHover} selected={selectedId} onSelect={(id) => setParams({ f: id })} dim={!!sysFocus && sysFocus !== s.id} k={transform.k} focused={sysFocus === s.id} />
               ))}
             </g>
           </svg>
@@ -164,66 +167,125 @@ export default function Network() {
   );
 }
 
-function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim, k }: {
+function LegendChip({ src, label }: { src: string; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <img src={src} alt="" width={24} height={24} style={{ borderRadius: 8, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.4))' }} />
+      {label}
+    </span>
+  );
+}
+
+function PinTip({ title, sub, y }: { title: string; sub: string; y: number }) {
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <text y={y} textAnchor="middle" fontSize={12} fontWeight={800} fill="var(--ink-0)"
+        style={{ paintOrder: 'stroke', stroke: 'rgba(4,12,20,.92)', strokeWidth: 3.5 }}>
+        {title}
+      </text>
+      <text y={y + 14} textAnchor="middle" fontSize={10} fontWeight={600} fill="var(--ink-2)"
+        style={{ paintOrder: 'stroke', stroke: 'rgba(4,12,20,.9)', strokeWidth: 3 }}>
+        {sub}
+      </text>
+    </g>
+  );
+}
+
+function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim, k, focused }: {
   sys: System; proj: (lat: number, lon: number) => [number, number]; live: Map<string, LiveFacility>;
-  hover: string | null; setHover: (id: string | null) => void; selected: string | null; onSelect: (id: string) => void; dim: boolean; k: number;
+  hover: string | null; setHover: (id: string | null) => void; selected: string | null; onSelect: (id: string) => void;
+  dim: boolean; k: number; focused: boolean;
 }) {
   const [dx, dy] = proj(sys.disposal_site.lat, sys.disposal_site.lon);
   const [yx, yy] = proj(sys.truck_yard[0], sys.truck_yard[1]);
-  const inv = 1 / k; // keep markers readable when zoomed
+  const inv = 1 / k;
+  const showWells = focused || k > 1.2;
+  const disposalKey = `${sys.id}-disposal`;
+  const truckKey = `${sys.id}-trucks`;
+  const hubSize = focused ? PIN.hubFocus : PIN.hub;
   return (
-    <g opacity={dim ? 0.25 : 1} style={{ transition: 'opacity .3s' }}>
-      {/* pipelines */}
+    <g opacity={dim ? 0.18 : 1} style={{ transition: 'opacity .3s' }}>
       {sys.facilities.map((f) => {
         const l = live.get(f.id)!;
         const [fx, fy] = proj(f.lat, f.lon);
-        const mx = (fx + dx) / 2 + (fy - dy) * 0.18, my = (fy + dy) / 2 + (dx - fx) * 0.18;
+        const mx = (fx + dx) / 2 + (fy - dy) * 0.12, my = (fy + dy) / 2 + (dx - fx) * 0.12;
         const flowing = l.pumpStatus === 1;
         const leak = l.status === 'leak';
-        const stroke = leak ? 'var(--amber)' : flowing ? 'var(--aqua)' : 'rgba(127,147,171,.5)';
+        const stroke = leak ? 'var(--amber)' : flowing ? 'var(--aqua)' : 'rgba(120,150,170,.45)';
         return (
-          <g key={f.id}>
-            <path d={`M${fx},${fy} Q${mx},${my} ${dx},${dy}`} fill="none" stroke={stroke} strokeWidth={flowing ? 2.4 * inv : 1.6 * inv} opacity={flowing ? 0.9 : 0.6}
-              strokeDasharray={flowing ? (leak ? `${4 * inv} ${4 * inv}` : `${8 * inv} ${6 * inv}`) : undefined}
-              style={flowing ? { animation: `flow ${leak ? 0.9 : 1.4}s linear infinite` } : undefined} filter={flowing ? 'url(#glow)' : undefined} />
-          </g>
+          <path key={`pipe-${f.id}`} d={`M${fx},${fy} Q${mx},${my} ${dx},${dy}`} fill="none" stroke={stroke}
+            strokeWidth={(flowing ? 3.2 : 2) * inv} opacity={flowing ? 0.9 : 0.5}
+            strokeDasharray={flowing ? (leak ? `${5 * inv} ${5 * inv}` : `${10 * inv} ${7 * inv}`) : undefined}
+            style={flowing ? { animation: `flow ${leak ? 0.9 : 1.5}s linear infinite` } : undefined}
+            filter={flowing ? 'url(#glow)' : undefined} />
         );
       })}
-      {/* disposal site */}
-      <g transform={`translate(${dx},${dy})`}>
-        <circle r={26 * inv} fill="url(#siteGlow)" />
-        <circle r={9 * inv} fill="var(--bg-2)" stroke="var(--aqua)" strokeWidth={1.6 * inv} />
-        <g transform={`scale(${inv})`}><DisposalIcon size={11} color="var(--aqua-2)" x={-5.5} y={-5.5} /></g>
-        <text y={-14 * inv} textAnchor="middle" fontSize={10 * inv} fill="var(--ink-2)" fontWeight={600}>{sys.id} disposal</text>
+
+      <g transform={`translate(${dx},${dy})`}
+        onMouseEnter={() => setHover(disposalKey)} onMouseLeave={() => setHover(null)}>
+        <MapPin kind="disposal" size={hubSize} inv={inv} badge={sys.id} active={hover === disposalKey} glow={hover === disposalKey ? 'var(--aqua)' : undefined} />
+        {(focused || hover === disposalKey) && (
+          <PinTip title={`${sys.id} disposal`} sub={`${sys.disposal_site.lat.toFixed(3)}, ${sys.disposal_site.lon.toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
+        )}
       </g>
-      {/* truck yard */}
-      <g transform={`translate(${yx},${yy})`}>
-        <rect x={-9 * inv} y={-9 * inv} width={18 * inv} height={18 * inv} rx={5 * inv} fill="var(--bg-2)" stroke="var(--ink-3)" strokeWidth={1.4 * inv} />
-        <g transform={`scale(${inv})`}><TruckIcon size={12} color="var(--ink-1)" x={-6} y={-6} /></g>
-        <text y={-14 * inv} textAnchor="middle" fontSize={9.5 * inv} fill="var(--ink-3)">{sys.id} trucks</text>
+
+      <g transform={`translate(${yx},${yy})`}
+        onMouseEnter={() => setHover(truckKey)} onMouseLeave={() => setHover(null)}>
+        <MapPin kind="truck" size={hubSize} inv={inv} badge={sys.id} active={hover === truckKey} glow={hover === truckKey ? 'var(--lagoon)' : undefined} />
+        {(focused || hover === truckKey) && (
+          <PinTip title={`${sys.id} trucks`} sub={`${sys.truck_yard[0].toFixed(3)}, ${sys.truck_yard[1].toFixed(3)}`} y={(hubSize * 0.55 + 6) * inv} />
+        )}
       </g>
-      {/* facilities */}
+
       {sys.facilities.map((f) => {
         const l = live.get(f.id)!;
         const [fx, fy] = proj(f.lat, f.lon);
         const c = statusColor[l.status];
         const isSel = selected === f.id, isHov = hover === f.id;
-        const r = (isSel || isHov ? 15 : 13) * inv;
-        const arc = Math.max(0.02, Math.min(1, l.level / 100));
-        const circ = 2 * Math.PI * (r + 4 * inv);
+        const trouble = l.status === 'failure' || l.status === 'leak' || l.status === 'wear';
+        const pin = isSel || isHov ? PIN.facilityHot : focused ? PIN.facilityFocus : PIN.facility;
+        const showTip = focused || isHov || isSel || trouble;
+        const nWells = f.wells.length;
         return (
           <g key={f.id} transform={`translate(${fx},${fy})`} style={{ cursor: 'pointer' }}
             onMouseEnter={() => setHover(f.id)} onMouseLeave={() => setHover(null)} onClick={() => onSelect(f.id)}>
-            {l.status === 'failure' && <circle r={r} fill="none" stroke={c} strokeWidth={2 * inv} style={{ animation: 'ripple 1.8s ease-out infinite', transformOrigin: 'center', transformBox: 'fill-box' }} />}
-            <circle r={r + 7 * inv} fill={c} opacity={isSel ? 0.22 : 0.1} />
-            {/* level arc */}
-            <circle r={r + 4 * inv} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={2.4 * inv} />
-            <circle r={r + 4 * inv} fill="none" stroke={c} strokeWidth={2.4 * inv} strokeDasharray={`${circ * arc} ${circ}`} strokeLinecap="round" transform="rotate(-90)" style={{ transition: 'stroke-dasharray .6s' }} />
-            <circle r={r} fill="var(--bg-2)" stroke={c} strokeWidth={(isSel ? 2.4 : 1.6) * inv} filter={isSel || isHov ? 'url(#glow)' : undefined} />
-            <g transform={`scale(${inv})`}><TankIcon size={14} color={c} x={-7} y={-7} /></g>
-            <text y={(r + 16) * inv} textAnchor="middle" fontSize={10.5 * inv} fontWeight={700} fill="var(--ink-0)" style={{ paintOrder: 'stroke', stroke: 'rgba(8,14,26,.8)', strokeWidth: 3 * inv }}>
-              {fmt.short(f.id)}
-            </text>
+            {l.status === 'failure' && (
+              <circle r={(pin * 0.48) * inv} fill="none" stroke={c} strokeWidth={2 * inv} opacity={0.75}
+                style={{ animation: 'ripple 1.8s ease-out infinite', transformOrigin: 'center', transformBox: 'fill-box' }} />
+            )}
+            {showWells && f.wells.map((w, i) => {
+              const ang = (-Math.PI / 2) + (i * 2 * Math.PI) / nWells;
+              const rad = (pin * 0.72) * inv;
+              const wx = Math.cos(ang) * rad, wy = Math.sin(ang) * rad;
+              const on = l.wells.find((x) => x.id === w.id)?.status === 1;
+              const wKey = `${f.id}-${w.id}`;
+              return (
+                <g key={w.id} transform={`translate(${wx},${wy})`}
+                  onMouseEnter={(e) => { e.stopPropagation(); setHover(wKey); }}
+                  onMouseLeave={() => setHover(f.id)}>
+                  <MapPin kind="well" size={PIN.well} inv={inv} badge={wellBadge(w.id)} dim={!on} active={hover === wKey} />
+                  {hover === wKey && (
+                    <PinTip title={fmt.short(w.id)} sub={on ? 'producing' : 'shut in'} y={(PIN.well * 0.55 + 4) * inv} />
+                  )}
+                </g>
+              );
+            })}
+            <MapPin
+              kind="tank"
+              size={pin}
+              inv={inv}
+              badge={facilityBadge(f.id)}
+              glow={trouble || isHov || isSel ? c : undefined}
+              trouble={trouble}
+              active={isHov || isSel}
+            />
+            {showTip && (
+              <PinTip
+                title={fmt.short(f.id)}
+                sub={isHov || isSel ? `${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}` : statusLabel[l.status]}
+                y={(pin * 0.55 + 8) * inv}
+              />
+            )}
           </g>
         );
       })}
@@ -232,13 +294,27 @@ function SystemLayer({ sys, proj, live, hover, setHover, selected, onSelect, dim
 }
 
 function HoverCard({ l }: { l: LiveFacility }) {
+  const hrsWarn = hoursToLimit(l.level, l.f.tank.capacity_bbl, Math.max(0, l.inflow - (l.pumpStatus === 1 ? l.pumpFlow : 0)), 85);
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <b>{l.f.id}</b>
-        <span className="chip ghost" style={{ color: statusColor[l.status], marginLeft: 'auto' }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ position: 'relative' }}>
+          <img src={mapArt.tank} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+          <span className="chip aqua" style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 10, padding: '1px 6px' }}>{facilityBadge(l.f.id)}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b>{fmt.short(l.f.id)}</b>
+          <div className="dim" style={{ fontSize: 11 }}>{l.f.lat.toFixed(4)} · {l.f.lon.toFixed(4)}</div>
+        </div>
+        <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
       </div>
-      <dl className="kv" style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+        <span className="chip ghost">tank {l.level.toFixed(0)}%</span>
+        <span className="chip ghost">trucks {l.f.response_min} min</span>
+        {l.planOverlay && <span className="chip mint tip">plan live<span className="tipbox">{l.planOverlay.label} — tank/wells follow your dispatch, pump fault still from sensors</span></span>}
+        {isFinite(hrsWarn) && hrsWarn < 48 && <span className="chip amber">warn in {fmt.dur(hrsWarn)}</span>}
+      </div>
+      <dl className="kv" style={{ marginTop: 10 }}>
         <dt>Tank</dt><dd>{l.level.toFixed(1)}% of {fmt.num(l.f.tank.capacity_bbl)} bbl</dd>
         <dt>Pump</dt><dd>{l.pumpStatus === 2 ? <span style={{ color: 'var(--coral)' }}>fault</span> : l.pumpStatus === 1 ? `${fmt.num(l.pumpFlow)} bpd` : 'off'}</dd>
         <dt>Inflow</dt><dd>{fmt.num(l.inflow)} bpd</dd>
@@ -249,7 +325,7 @@ function HoverCard({ l }: { l: LiveFacility }) {
 }
 
 function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void }) {
-  const { dataset, now, analysis } = useStore();
+  const { dataset, now, analysis, dispatched } = useStore();
   if (!dataset || !analysis) return null;
   const f: FacilityCtx = l.f;
   const limits = dataset.network.defaults.tank_limits_pct;
@@ -257,36 +333,81 @@ function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void })
   const iNow = indexAt(t, now);
   const i0 = Math.max(0, iNow - 288);
   const lvl = t.series.get(`${f.tank.id}|level_pct`)!;
-  const spark = Array.from({ length: iNow - i0 + 1 }, (_, k) => ({ t: t.ts[i0 + k], v: lvl[i0 + k] }));
+  const dPlan = dispatchForFacility(dispatched, f.id);
+  const spark = Array.from({ length: iNow - i0 + 1 }, (_, k) => {
+    const ts = t.ts[i0 + k];
+    let v = lvl[i0 + k];
+    if (dPlan && ts >= dPlan.commitUnix) {
+      const m = Math.floor((ts - dPlan.commitUnix) / 60);
+      if (m >= 0 && m < dPlan.levelTracePct.length) v = dPlan.levelTracePct[m];
+    }
+    return { t: ts, v };
+  });
   const running = l.pumpStatus === 1;
   const failed = l.pumpStatus === 2;
-  const nodeStyle = (c: string): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: `1px solid ${c}33`, background: `${c}14` });
+  const nodeStyle = (c: string): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: `1px solid ${c}33`, background: `${c}14` });
   const fail = analysis.orderedFailures.find((c) => c.facility.id === f.id);
+  const netFill = Math.max(0, l.inflow - (running ? l.pumpFlow : 0));
+  const hrsWarn = l.planOverlay
+    ? hoursToLimit(l.level, f.tank.capacity_bbl, l.inflow, limits.warning)
+    : hoursToLimit(l.level, f.tank.capacity_bbl, netFill, limits.warning);
+  const hrsShut = l.planOverlay
+    ? (isFinite(l.planOverlay.hoursToLimit) ? l.planOverlay.hoursToLimit : hoursToLimit(l.level, f.tank.capacity_bbl, l.inflow, limits.shutdown))
+    : hoursToLimit(l.level, f.tank.capacity_bbl, netFill, limits.shutdown);
 
   return (
     <div className="card pad" style={{ position: 'sticky', top: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div>
-          <div className="big" style={{ fontSize: 20 }}>{f.id}</div>
-          <div className="muted" style={{ fontSize: 12 }}>{f.system} · {f.lat.toFixed(3)}, {f.lon.toFixed(3)} · trucks {f.response_min} min away</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'relative' }}>
+          <img src={mapArt.tank} alt="" width={56} height={56} style={{ objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(94,200,216,.35))' }} />
+          <span className="chip aqua" style={{ position: 'absolute', right: -6, bottom: -4, fontWeight: 800 }}>{facilityBadge(f.id)}</span>
         </div>
-        <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={onClose}><X size={14} /></button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="big" style={{ fontSize: 20 }}>{fmt.short(f.id)}</div>
+          <div className="muted" style={{ fontSize: 12 }}>{f.id} · {f.lat.toFixed(4)}, {f.lon.toFixed(4)}</div>
+        </div>
+        <button className="btn ghost sm" onClick={onClose}><X size={14} /></button>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+
+      {/* Enchantress-style cadence chips */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
         <span className="chip ghost" style={{ color: statusColor[l.status] }}><i className="dot" style={{ background: statusColor[l.status] }} />{statusLabel[l.status]}</span>
+        {l.planOverlay && (
+          <span className="chip mint tip">
+            live plan · {l.planOverlay.label}
+            <span className="tipbox">
+              Dispatched at {fmt.time(l.planOverlay.commitUnix)}. Tank &amp; wells follow the plan sim (+{l.planOverlay.minute} min).
+              Pump fault stays from sensors. Cost {fmt.money(l.planOverlay.cost)} · peak {l.planOverlay.peakPct.toFixed(0)}%.
+            </span>
+          </span>
+        )}
+        <span className="chip ghost">trucks {f.response_min} min</span>
+        <span className="chip ghost">cycle {f.cycle_min} min</span>
+        {isFinite(hrsWarn) && hrsWarn < 72 && <span className="chip amber">warn {fmt.dur(hrsWarn)}</span>}
+        {isFinite(hrsShut) && hrsShut < 72 && <span className="chip coral">trip {fmt.dur(hrsShut)}</span>}
         {l.events.map((e) => <CategoryChip key={e.id} cat={e.category} pulse />)}
       </div>
 
-      {/* schematic */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginTop: 14 }}>
+      {/* Enchantress Start/End meters → Now tank fill vs capacity */}
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+          <span>Tank now</span>
+          <span className="muted">{l.level.toFixed(1)}% · {fmt.num((l.level / 100) * f.tank.capacity_bbl)} / {fmt.num(f.tank.capacity_bbl)} bbl</span>
+        </div>
+        <Meter value={l.level} max={100} warn={limits.warning} shut={limits.shutdown} height={16} />
+      </div>
+
+      {/* Pathways (Enchantress neighbor list → Avon flow chain) */}
+      <div style={{ marginTop: 16, fontWeight: 800, fontSize: 12.5, letterSpacing: '.02em' }}>Pathways</div>
+      <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
         <div style={nodeStyle('#7f93ab')}>
-          <WellIcon color="var(--ink-1)" />
+          <img src={mapArt.well} alt="" width={40} height={40} style={{ objectFit: 'contain' }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5 }}>Wells → {fmt.num(l.inflow)} bpd water</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               {l.wells.map((w) => (
                 <span key={w.id} className={`chip ${w.status === 1 ? 'aqua' : 'coral'} tip`} style={{ fontSize: 10.5 }}>
-                  {w.id.replace(/^S\d+_WELL_/, '')} {w.status === 1 ? fmt.num(w.water) : 'shut in'}
+                  {wellBadge(w.id)} {w.status === 1 ? fmt.num(w.water) : 'shut in'}
                   <span className="tipbox">{w.id}: {fmt.num(f.wells.find((x) => x.id === w.id)!.oil_bpd)} bbl oil · {fmt.num(f.wells.find((x) => x.id === w.id)!.gas_mcfd)} mcf gas /day</span>
                 </span>
               ))}
@@ -297,7 +418,9 @@ function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void })
         <div style={{ ...nodeStyle(l.level >= limits.shutdown ? '#fb7185' : l.level >= limits.warning ? '#f6b04b' : '#2dd4bf'), alignItems: 'stretch' }}>
           <TankGauge level={l.level} warn={limits.warning} shut={limits.shutdown} width={64} height={84} failed={failed} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}><TankIcon size={14} /> {f.tank.id}</div>
+            <div style={{ fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <img src={mapArt.tank} alt="" width={18} height={18} style={{ objectFit: 'contain' }} /> {f.tank.id}
+            </div>
             <div className="muted" style={{ fontSize: 12 }}>{fmt.num((l.level / 100) * f.tank.capacity_bbl)} / {fmt.num(f.tank.capacity_bbl)} bbl</div>
             <div style={{ height: 46, marginTop: 6 }}>
               <ResponsiveContainer>
@@ -314,7 +437,7 @@ function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void })
         </div>
         <Arrow active={running} />
         <div style={nodeStyle(failed ? '#fb7185' : running ? '#2dd4bf' : '#7f93ab')}>
-          <PumpIcon color={failed ? 'var(--coral)' : running ? 'var(--aqua)' : 'var(--ink-2)'} />
+          <img src={mapArt.well} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'contain', opacity: failed ? 1 : running ? 1 : 0.7 }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5 }}>{f.pump.id} · {failed ? <span style={{ color: 'var(--coral)' }}>FAULT</span> : running ? 'running' : 'off (below start level)'}</div>
             <div className="muted" style={{ fontSize: 12 }}>{fmt.num(l.pumpFlow)} / {fmt.num(f.pump.max_flow_bpd)} bpd · discharge {fmt.num(l.discharge)} psi</div>
@@ -323,7 +446,7 @@ function FacilityPanel({ l, onClose }: { l: LiveFacility; onClose: () => void })
         </div>
         <Arrow active={running} />
         <div style={nodeStyle(l.status === 'leak' ? '#f6b04b' : running ? '#2dd4bf' : '#7f93ab')}>
-          <PipelineIcon color={l.status === 'leak' ? 'var(--amber)' : running ? 'var(--aqua)' : 'var(--ink-2)'} />
+          <img src={mapArt.disposal} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'contain' }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5 }}>{f.pipeline.id} → {f.system} disposal</div>
             <div className="muted" style={{ fontSize: 12 }}>receives {fmt.num(l.recv)} bpd · {fmt.num(l.pipePsi)} psi (disposal {f.disposal_psi})</div>

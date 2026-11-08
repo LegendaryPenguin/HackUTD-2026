@@ -1,0 +1,3514 @@
+{
+  "folder": "snapshot_2026-10-10T0900",
+  "generated_at": "2026-11-08T01:39:29.206Z",
+  "note": "cost = lost production vs regular well revenue + truck fees. baselineRevenue = rev/h × hours until repair.",
+  "rows": [
+    {
+      "event": "EV-006",
+      "facility": "S1_FACILITY_B",
+      "system": "S1",
+      "level_pct": 35.6,
+      "fill_bbl_h": 83.3,
+      "hours_to_92": 8.12,
+      "baseline_revenue": 19229,
+      "do_nothing_loss": 0,
+      "best_label": "Do nothing (never trips)",
+      "best_cost": 0,
+      "save_vs_nothing": 0,
+      "production_kept_pct": 100,
+      "option_count": 40,
+      "families": {
+        "wait_safe": 1,
+        "do_nothing": 0,
+        "trucks_only": 4,
+        "shut_in_only": 7,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-009",
+      "facility": "S1_FACILITY_C",
+      "system": "S1",
+      "level_pct": 50.8,
+      "fill_bbl_h": 75,
+      "hours_to_92": 4.4,
+      "baseline_revenue": 19525,
+      "do_nothing_loss": 5009,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 4104,
+      "production_kept_pct": 100,
+      "option_count": 39,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 6,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 75,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 264,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 305,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-011",
+      "facility": "S2_FACILITY_B",
+      "system": "S2",
+      "level_pct": 50.8,
+      "fill_bbl_h": 66.7,
+      "hours_to_92": 4.33,
+      "baseline_revenue": 14496,
+      "do_nothing_loss": 3892,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 2987,
+      "production_kept_pct": 100,
+      "option_count": 39,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 6,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 70,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 260,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 315,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-012",
+      "facility": "S2_FACILITY_C",
+      "system": "S2",
+      "level_pct": 45.9,
+      "fill_bbl_h": 58.3,
+      "hours_to_92": 4.74,
+      "baseline_revenue": 14163,
+      "do_nothing_loss": 2805,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 1900,
+      "production_kept_pct": 100,
+      "option_count": 40,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 7,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 80,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 285,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 350,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-013",
+      "facility": "S2_FACILITY_A",
+      "system": "S2",
+      "level_pct": 50.8,
+      "fill_bbl_h": 91.7,
+      "hours_to_92": 4.49,
+      "baseline_revenue": 23260,
+      "do_nothing_loss": 5608,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 4703,
+      "production_kept_pct": 100,
+      "option_count": 39,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 6,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 85,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 269,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 340,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-014",
+      "facility": "S3_FACILITY_A",
+      "system": "S3",
+      "level_pct": 45.8,
+      "fill_bbl_h": 83.3,
+      "hours_to_92": 4.99,
+      "baseline_revenue": 21004,
+      "do_nothing_loss": 3299,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 2394,
+      "production_kept_pct": 100,
+      "option_count": 56,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 6,
+        "shut_in_only": 7,
+        "mixed": 42
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 90,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 299,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 330,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-015",
+      "facility": "S4_FACILITY_C",
+      "system": "S4",
+      "level_pct": 55.6,
+      "fill_bbl_h": 87.5,
+      "hours_to_92": 3.74,
+      "baseline_revenue": 20413,
+      "do_nothing_loss": 7506,
+      "best_label": "1 truck × 2 trips",
+      "best_cost": 1810,
+      "save_vs_nothing": 5696,
+      "production_kept_pct": 100,
+      "option_count": 38,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 5,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 90,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 224,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 320,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-018",
+      "facility": "S4_FACILITY_B",
+      "system": "S4",
+      "level_pct": 42.5,
+      "fill_bbl_h": 62.5,
+      "hours_to_92": 5.54,
+      "baseline_revenue": 15753,
+      "do_nothing_loss": 1004,
+      "best_label": "shut in well B1 at +302 min",
+      "best_cost": 469,
+      "save_vs_nothing": 535,
+      "production_kept_pct": 97,
+      "option_count": 40,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 7,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 302,
+          "kind": "shut_in",
+          "label": "Shut in well B1"
+        },
+        {
+          "t": 332,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-019",
+      "facility": "S4_FACILITY_C",
+      "system": "S4",
+      "level_pct": 41.8,
+      "fill_bbl_h": 87.5,
+      "hours_to_92": 5.16,
+      "baseline_revenue": 20413,
+      "do_nothing_loss": 2602,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 1697,
+      "production_kept_pct": 100,
+      "option_count": 40,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 7,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 90,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 310,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 320,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-020",
+      "facility": "S4_FACILITY_D",
+      "system": "S4",
+      "level_pct": 45.8,
+      "fill_bbl_h": 70.8,
+      "hours_to_92": 4.9,
+      "baseline_revenue": 17972,
+      "do_nothing_loss": 3097,
+      "best_label": "1 truck × 1 trip",
+      "best_cost": 905,
+      "save_vs_nothing": 2192,
+      "production_kept_pct": 100,
+      "option_count": 40,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 7,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 85,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 290,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 294,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    },
+    {
+      "event": "EV-021",
+      "facility": "S4_FACILITY_A",
+      "system": "S4",
+      "level_pct": 55.8,
+      "fill_bbl_h": 75,
+      "hours_to_92": 3.86,
+      "baseline_revenue": 18194,
+      "do_nothing_loss": 6320,
+      "best_label": "1 truck × 1 trip + shut in well A2 at +346 min",
+      "best_cost": 975,
+      "save_vs_nothing": 5345,
+      "production_kept_pct": 99.6,
+      "option_count": 39,
+      "families": {
+        "wait_safe": 0,
+        "do_nothing": 1,
+        "trucks_only": 4,
+        "shut_in_only": 6,
+        "mixed": 28
+      },
+      "timeline_best": [
+        {
+          "t": 0,
+          "kind": "now",
+          "label": "Now"
+        },
+        {
+          "t": 85,
+          "kind": "truck",
+          "label": "Truck arrives (−150 bbl)"
+        },
+        {
+          "t": 232,
+          "kind": "would_trip",
+          "label": "Would hit 92% if nothing done"
+        },
+        {
+          "t": 335,
+          "kind": "truck_free",
+          "label": "Truck free again"
+        },
+        {
+          "t": 346,
+          "kind": "shut_in",
+          "label": "Shut in well A2"
+        },
+        {
+          "t": 355,
+          "kind": "repair",
+          "label": "Pump repaired"
+        }
+      ]
+    }
+  ],
+  "joints": [
+    {
+      "system": "S2",
+      "atUnix": 1791452100,
+      "eventIds": [
+        "EV-011",
+        "EV-012"
+      ],
+      "totalCost": 1810,
+      "allocation": {
+        "EV-011": 1,
+        "EV-012": 1
+      },
+      "plans": {
+        "EV-011": "1 truck × 1 trip",
+        "EV-012": "1 truck × 1 trip"
+      }
+    },
+    {
+      "system": "S2",
+      "atUnix": 1791453900,
+      "eventIds": [
+        "EV-011",
+        "EV-012",
+        "EV-013"
+      ],
+      "totalCost": 3100.416666666667,
+      "allocation": {
+        "EV-011": 1,
+        "EV-012": 0,
+        "EV-013": 1
+      },
+      "plans": {
+        "EV-011": "1 truck × 1 trip",
+        "EV-012": "shut in well C1 at +162 min",
+        "EV-013": "1 truck × 1 trip"
+      }
+    },
+    {
+      "system": "S4",
+      "atUnix": 1791617700,
+      "eventIds": [
+        "EV-019",
+        "EV-020"
+      ],
+      "totalCost": 1810,
+      "allocation": {
+        "EV-019": 1,
+        "EV-020": 1
+      },
+      "plans": {
+        "EV-019": "1 truck × 1 trip",
+        "EV-020": "1 truck × 1 trip"
+      }
+    },
+    {
+      "system": "S4",
+      "atUnix": 1791619500,
+      "eventIds": [
+        "EV-019",
+        "EV-020",
+        "EV-021"
+      ],
+      "totalCost": 3102.8125,
+      "allocation": {
+        "EV-019": 1,
+        "EV-020": 0,
+        "EV-021": 1
+      },
+      "plans": {
+        "EV-019": "1 truck × 1 trip",
+        "EV-020": "shut in well D2 at +162 min",
+        "EV-021": "1 truck × 1 trip + shut in well A2 at +346 min"
+      }
+    }
+  ],
+  "richest_example": {
+    "eventId": "EV-015",
+    "facility": "S4_FACILITY_C",
+    "system": "S4",
+    "asset": "S4_PUMP_C",
+    "nowUnix": 1791511500,
+    "onsetUnix": 1791511200,
+    "repairUnix": 1791532800,
+    "levelPct": 55.630001068115234,
+    "inflowBpd": 2100,
+    "fillBblPerHour": 87.5,
+    "capacityBbl": 900,
+    "revPerHour": 3450,
+    "hoursToLimit": 3.7409141758510045,
+    "tripsAtUnix": 1791524967,
+    "horizonMin": 355,
+    "baselineRevenue": 20412.5,
+    "doNothingCost": 7506.346093314036,
+    "recommended": {
+      "id": "1t2x-none",
+      "label": "1 truck × 2 trips",
+      "family": "trucks_only",
+      "cost": 1810,
+      "truckCost": 1810,
+      "lostProduction": 0,
+      "baselineRevenue": 20412.5,
+      "productionKeptPct": 1,
+      "savingsVsDoNothing": 5696.346093314036,
+      "trucks": 1,
+      "trips": 2,
+      "shutIns": [],
+      "tripAt": null,
+      "peakPct": 90.81518625330159,
+      "preventsTrip": true,
+      "recommended": true,
+      "timeline": [
+        {
+          "kind": "now",
+          "atMin": 0,
+          "unix": 1791511500,
+          "label": "Now",
+          "detail": "tank 55.6% · filling 87.5 bbl/h"
+        },
+        {
+          "kind": "truck",
+          "atMin": 90,
+          "unix": 1791516900,
+          "label": "Truck arrives (−150 bbl)",
+          "detail": "arrival 1/2"
+        },
+        {
+          "kind": "would_trip",
+          "atMin": 224,
+          "unix": 1791524940,
+          "label": "Would hit 92% if nothing done",
+          "detail": "auto shut-in of all wells"
+        },
+        {
+          "kind": "truck",
+          "atMin": 320,
+          "unix": 1791530700,
+          "label": "Truck arrives (−150 bbl)",
+          "detail": "arrival 2/2"
+        },
+        {
+          "kind": "repair",
+          "atMin": 355,
+          "unix": 1791532800,
+          "label": "Pump repaired",
+          "detail": "wells can resume normal rate"
+        }
+      ]
+    },
+    "scenarios": [
+      {
+        "id": "1t2x-none",
+        "label": "1 truck × 2 trips",
+        "family": "trucks_only",
+        "cost": 1810,
+        "truckCost": 1810,
+        "lostProduction": 0,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 1,
+        "savingsVsDoNothing": 5696.346093314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "recommended": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-none",
+        "label": "2 trucks × 1 trip",
+        "family": "trucks_only",
+        "cost": 1810,
+        "truckCost": 1810,
+        "lostProduction": 0,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 1,
+        "savingsVsDoNothing": 5696.346093314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [],
+        "tripAt": null,
+        "peakPct": 79.81981588293071,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C1@354",
+        "label": "1 truck × 2 trips + shut in well C1 at +354 min",
+        "family": "mixed",
+        "cost": 1827.1875,
+        "truckCost": 1810,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 5679.158593314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C2@354",
+        "label": "1 truck × 2 trips + shut in well C2 at +354 min",
+        "family": "mixed",
+        "cost": 1827.1875,
+        "truckCost": 1810,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 5679.158593314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C1@354",
+        "label": "2 trucks × 1 trip + shut in well C1 at +354 min",
+        "family": "mixed",
+        "cost": 1827.1875,
+        "truckCost": 1810,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 5679.158593314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.73879736441218,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C2@354",
+        "label": "2 trucks × 1 trip + shut in well C2 at +354 min",
+        "family": "mixed",
+        "cost": 1827.1875,
+        "truckCost": 1810,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 5679.158593314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.7712047718196,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C3@354",
+        "label": "1 truck × 2 trips + shut in well C3 at +354 min",
+        "family": "mixed",
+        "cost": 1833.125,
+        "truckCost": 1810,
+        "lostProduction": 23.125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9988671157379057,
+        "savingsVsDoNothing": 5673.221093314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C3@354",
+        "label": "2 trucks × 1 trip + shut in well C3 at +354 min",
+        "family": "mixed",
+        "cost": 1833.125,
+        "truckCost": 1810,
+        "lostProduction": 23.125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9988671157379057,
+        "savingsVsDoNothing": 5673.221093314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.78740847552329,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C1@354_S4_WELL_C2@354",
+        "label": "1 truck × 2 trips + shut in wells C1, C2 at +354 min",
+        "family": "mixed",
+        "cost": 1844.375,
+        "truckCost": 1810,
+        "lostProduction": 34.375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9983159828536436,
+        "savingsVsDoNothing": 5661.971093314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C1@354_S4_WELL_C2@354",
+        "label": "2 trucks × 1 trip + shut in wells C1, C2 at +354 min",
+        "family": "mixed",
+        "cost": 1844.375,
+        "truckCost": 1810,
+        "lostProduction": 34.375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9983159828536436,
+        "savingsVsDoNothing": 5661.971093314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.69018625330108,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C1@354_S4_WELL_C3@354",
+        "label": "1 truck × 2 trips + shut in wells C1, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1850.3125,
+        "truckCost": 1810,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 5656.033593314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "1 truck × 2 trips + shut in wells C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1850.3125,
+        "truckCost": 1810,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 5656.033593314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C1@354_S4_WELL_C3@354",
+        "label": "2 trucks × 1 trip + shut in wells C1, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1850.3125,
+        "truckCost": 1810,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 5656.033593314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.70638995700477,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "2 trucks × 1 trip + shut in wells C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1850.3125,
+        "truckCost": 1810,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 5656.033593314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.73879736441218,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C1@299",
+        "label": "1 truck × 1 trip + shut in well C1 at +299 min",
+        "family": "mixed",
+        "cost": 1867.5,
+        "truckCost": 905,
+        "lostProduction": 962.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9528475199020208,
+        "savingsVsDoNothing": 5638.846093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 299
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.94944551256053,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 299,
+            "unix": 1791529440,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t2x-S4_WELL_C1@354_S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "1 truck × 2 trips + shut in wells C1, C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1867.5,
+        "truckCost": 1810,
+        "lostProduction": 57.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9971830985915493,
+        "savingsVsDoNothing": 5638.846093314036,
+        "trucks": 1,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 90.81518625330159,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t1x-S4_WELL_C1@354_S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "2 trucks × 1 trip + shut in wells C1, C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 1867.5,
+        "truckCost": 1810,
+        "lostProduction": 57.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9971830985915493,
+        "savingsVsDoNothing": 5638.846093314036,
+        "trucks": 2,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 79.65777884589367,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/2"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/2"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C1@320_S4_WELL_C2@320",
+        "label": "1 truck × 1 trip + shut in wells C1, C2 at +320 min",
+        "family": "mixed",
+        "cost": 2108.125,
+        "truckCost": 905,
+        "lostProduction": 1203.125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9410593998775261,
+        "savingsVsDoNothing": 5398.221093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 320
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 320
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.9494455125607,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-none",
+        "label": "1 truck × 1 trip + still trips",
+        "family": "trucks_only",
+        "cost": 2457.5,
+        "truckCost": 905,
+        "lostProduction": 1552.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.923943661971831,
+        "savingsVsDoNothing": 5048.846093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [],
+        "tripAt": 328,
+        "peakPct": 92.11148254959792,
+        "preventsTrip": false,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "trip",
+            "atMin": 328,
+            "unix": 1791531180,
+            "label": "Tank hits 92% under this plan",
+            "detail": "forced shut-in starts"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C2@262",
+        "label": "1 truck × 1 trip + shut in well C2 at +262 min",
+        "family": "mixed",
+        "cost": 2503.4375,
+        "truckCost": 905,
+        "lostProduction": 1598.4375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9216932026944274,
+        "savingsVsDoNothing": 5002.908593314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 262
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.9656492162647,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 262,
+            "unix": 1791527220,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C1@327_S4_WELL_C2@327_S4_WELL_C3@327",
+        "label": "1 truck × 1 trip + shut in wells C1, C2, C3 at +327 min",
+        "family": "mixed",
+        "cost": 2515,
+        "truckCost": 905,
+        "lostProduction": 1610,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9211267605633803,
+        "savingsVsDoNothing": 4991.346093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 327
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 327
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 327
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.94944551256089,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 327,
+            "unix": 1791531120,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 327,
+            "unix": 1791531120,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 327,
+            "unix": 1791531120,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C1@315_S4_WELL_C3@315",
+        "label": "1 truck × 1 trip + shut in wells C1, C3 at +315 min",
+        "family": "mixed",
+        "cost": 2517.5,
+        "truckCost": 905,
+        "lostProduction": 1612.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9210042865890998,
+        "savingsVsDoNothing": 4988.846093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 315
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 315
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.94944551256083,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 315,
+            "unix": 1791530400,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 315,
+            "unix": 1791530400,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C2@299_S4_WELL_C3@299",
+        "label": "1 truck × 1 trip + shut in wells C2, C3 at +299 min",
+        "family": "mixed",
+        "cost": 3162.5,
+        "truckCost": 905,
+        "lostProduction": 2257.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.8894060012247398,
+        "savingsVsDoNothing": 4343.846093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 299
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 299
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.94944551256053,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 299,
+            "unix": 1791529440,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 299,
+            "unix": 1791529440,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-none",
+        "label": "2 trucks × 2 trips",
+        "family": "trucks_only",
+        "cost": 3620,
+        "truckCost": 3620,
+        "lostProduction": 0,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 1,
+        "savingsVsDoNothing": 3886.346093314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C1@354",
+        "label": "2 trucks × 2 trips + shut in well C1 at +354 min",
+        "family": "mixed",
+        "cost": 3637.1875,
+        "truckCost": 3620,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 3869.158593314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C2@354",
+        "label": "2 trucks × 2 trips + shut in well C2 at +354 min",
+        "family": "mixed",
+        "cost": 3637.1875,
+        "truckCost": 3620,
+        "lostProduction": 17.1875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9991579914268218,
+        "savingsVsDoNothing": 3869.158593314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C3@354",
+        "label": "2 trucks × 2 trips + shut in well C3 at +354 min",
+        "family": "mixed",
+        "cost": 3643.125,
+        "truckCost": 3620,
+        "lostProduction": 23.125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9988671157379057,
+        "savingsVsDoNothing": 3863.221093314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C1@354_S4_WELL_C2@354",
+        "label": "2 trucks × 2 trips + shut in wells C1, C2 at +354 min",
+        "family": "mixed",
+        "cost": 3654.375,
+        "truckCost": 3620,
+        "lostProduction": 34.375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9983159828536436,
+        "savingsVsDoNothing": 3851.971093314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C1@354_S4_WELL_C3@354",
+        "label": "2 trucks × 2 trips + shut in wells C1, C3 at +354 min",
+        "family": "mixed",
+        "cost": 3660.3125,
+        "truckCost": 3620,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 3846.033593314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "2 trucks × 2 trips + shut in wells C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 3660.3125,
+        "truckCost": 3620,
+        "lostProduction": 40.3125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9980251071647275,
+        "savingsVsDoNothing": 3846.033593314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "2t2x-S4_WELL_C1@354_S4_WELL_C2@354_S4_WELL_C3@354",
+        "label": "2 trucks × 2 trips + shut in wells C1, C2, C3 at +354 min",
+        "family": "mixed",
+        "cost": 3677.5,
+        "truckCost": 3620,
+        "lostProduction": 57.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.9971830985915493,
+        "savingsVsDoNothing": 3828.846093314036,
+        "trucks": 2,
+        "trips": 2,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 354
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 354
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 74.14851958663427,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 2/4"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 3/4"
+          },
+          {
+            "kind": "truck",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 4/4"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 354,
+            "unix": 1791532740,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "1t1x-S4_WELL_C3@216",
+        "label": "1 truck × 1 trip + shut in well C3 at +216 min",
+        "family": "mixed",
+        "cost": 4119.375,
+        "truckCost": 905,
+        "lostProduction": 3214.375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.8425290875688917,
+        "savingsVsDoNothing": 3386.971093314036,
+        "trucks": 1,
+        "trips": 1,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 216
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.98185291996724,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "truck",
+            "atMin": 90,
+            "unix": 1791516900,
+            "label": "Truck arrives (−150 bbl)",
+            "detail": "arrival 1/1"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 216,
+            "unix": 1791524460,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "truck_free",
+            "atMin": 320,
+            "unix": 1791530700,
+            "label": "Truck free again",
+            "detail": "back at yard for another job"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-S4_WELL_C1@93",
+        "label": "shut in well C1 at +93 min",
+        "family": "shut_in_only",
+        "cost": 4503.125,
+        "truckCost": 0,
+        "lostProduction": 4503.125,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.7793937538273117,
+        "savingsVsDoNothing": 3003.221093314036,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 93
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.92629736441077,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 93,
+            "unix": 1791517080,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-S4_WELL_C1@191_S4_WELL_C2@191",
+        "label": "shut in wells C1, C2 at +191 min",
+        "family": "shut_in_only",
+        "cost": 5637.5,
+        "truckCost": 0,
+        "lostProduction": 5637.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.7238211879975506,
+        "savingsVsDoNothing": 1868.846093314036,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 191
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 191
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.89388995700418,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 191,
+            "unix": 1791522960,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 191,
+            "unix": 1791522960,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-none",
+        "label": "Do nothing (auto shut-in)",
+        "family": "do_nothing",
+        "cost": 7475,
+        "truckCost": 0,
+        "lostProduction": 7475,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.6338028169014085,
+        "savingsVsDoNothing": 31.346093314035897,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [],
+        "tripAt": 225,
+        "peakPct": 92.08833440144947,
+        "preventsTrip": false,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "trip",
+            "atMin": 225,
+            "unix": 1791525000,
+            "label": "Tank hits 92% under this plan",
+            "detail": "forced shut-in starts"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-S4_WELL_C1@224_S4_WELL_C2@224_S4_WELL_C3@224",
+        "label": "shut in wells C1, C2, C3 at +224 min",
+        "family": "shut_in_only",
+        "cost": 7532.5,
+        "truckCost": 0,
+        "lostProduction": 7532.5,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.6309859154929578,
+        "savingsVsDoNothing": -26.153906685964103,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 224
+          },
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 224
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 224
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.92629736441242,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-S4_WELL_C1@168_S4_WELL_C3@168",
+        "label": "shut in wells C1, C3 at +168 min",
+        "family": "shut_in_only",
+        "cost": 7538.4375,
+        "truckCost": 0,
+        "lostProduction": 7538.4375,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.6306950398040416,
+        "savingsVsDoNothing": -32.0914066859641,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C1",
+            "startMin": 168
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 168
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.94250106811589,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 168,
+            "unix": 1791521580,
+            "label": "Shut in well C1",
+            "detail": "stops 1050 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 168,
+            "unix": 1791521580,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      },
+      {
+        "id": "0t0x-S4_WELL_C2@93_S4_WELL_C3@93",
+        "label": "shut in wells C2, C3 at +93 min",
+        "family": "shut_in_only",
+        "cost": 10561.875,
+        "truckCost": 0,
+        "lostProduction": 10561.875,
+        "baselineRevenue": 20412.5,
+        "productionKeptPct": 0.4825780771586038,
+        "savingsVsDoNothing": -3055.528906685964,
+        "trucks": 0,
+        "trips": 0,
+        "shutIns": [
+          {
+            "well": "S4_WELL_C2",
+            "startMin": 93
+          },
+          {
+            "well": "S4_WELL_C3",
+            "startMin": 93
+          }
+        ],
+        "tripAt": null,
+        "peakPct": 91.92629736441077,
+        "preventsTrip": true,
+        "timeline": [
+          {
+            "kind": "now",
+            "atMin": 0,
+            "unix": 1791511500,
+            "label": "Now",
+            "detail": "tank 55.6% · filling 87.5 bbl/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 93,
+            "unix": 1791517080,
+            "label": "Shut in well C2",
+            "detail": "stops 630 bpd · loses $1,031/h"
+          },
+          {
+            "kind": "shut_in",
+            "atMin": 93,
+            "unix": 1791517080,
+            "label": "Shut in well C3",
+            "detail": "stops 420 bpd · loses $1,388/h"
+          },
+          {
+            "kind": "would_trip",
+            "atMin": 224,
+            "unix": 1791524940,
+            "label": "Would hit 92% if nothing done",
+            "detail": "auto shut-in of all wells"
+          },
+          {
+            "kind": "repair",
+            "atMin": 355,
+            "unix": 1791532800,
+            "label": "Pump repaired",
+            "detail": "wells can resume normal rate"
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "total": 38,
+      "preventsTrip": 36,
+      "doNothing": 1,
+      "trucksOnly": 4,
+      "shutInOnly": 5,
+      "mixed": 28,
+      "waitSafe": 0
+    }
+  }
+}

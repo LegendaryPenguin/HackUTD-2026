@@ -1,26 +1,50 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { Activity, Bell, ChevronDown, ClipboardList, FolderOpen, Map as MapIcon, RotateCcw, SlidersHorizontal } from 'lucide-react';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import emblem from '../assets/emblem.jpg';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
+import { detectEvents } from '../lib/detector';
+import { TimelineScrubber, type TimelineTick } from './TimelineScrubber';
+import type { Category } from '../lib/types';
+
+const TONE: Record<Category, TimelineTick['tone']> = {
+  pump_failure: 'danger',
+  pipeline_leak: 'warn',
+  pump_degradation: 'primary',
+};
 
 export function Layout() {
   const { datasets, dataset, load, loadFiles, loading, error, now, liveNow, isLive, setNow, resetNow, analysis } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const t0 = dataset?.telemetry.ts[0] ?? 0;
-  const span = Math.max(1, liveNow - t0);
-  const p = ((now - t0) / span) * 100;
   const nFail = analysis?.orderedFailures.length ?? 0;
   const nOther = (analysis?.ongoing.length ?? 0) - nFail;
 
+  // Full-week milestones (always vs live end) so ticks stay visible while scrubbing.
+  const ticks = useMemo<TimelineTick[]>(() => {
+    if (!dataset) return [];
+    return detectEvents(dataset, liveNow).map((e) => ({
+      id: e.id,
+      value: e.onset,
+      tone: TONE[e.category],
+      label: `${e.category.replace(/_/g, ' ')} · ${e.asset} · ${fmt.dayTime(e.onset)}`,
+    }));
+  }, [dataset, liveNow]);
+
   return (
     <div className="shell">
+      <div className="tide-ambient" aria-hidden>
+        <span className="orb a" />
+        <span className="orb b" />
+        <span className="orb c" />
+      </div>
       <header className="topbar">
         <div className="brand">
           <img src={emblem} alt="" />
           <div>
-            AVON<small>Water ops console</small>
+            <span className="sig">Avon</span>
+            <small>Night Tide · water ops</small>
           </div>
         </div>
 
@@ -41,21 +65,26 @@ export function Layout() {
 
         {dataset && (
           <div className="timebar">
-            <input
-              className="scrub"
-              type="range"
-              min={t0}
-              max={liveNow}
-              step={300}
+            <TimelineScrubber
+              start={t0}
+              end={liveNow}
               value={now}
-              style={{ ['--p' as string]: `${p}%` }}
-              onChange={(e) => setNow(+e.target.value)}
-              title="Time travel: treat an earlier moment as now"
+              step={300}
+              ticks={ticks}
+              tone="primary"
+              formatValue={(u) => fmt.dayTime(u)}
+              labels={{ region: 'Week timeline — drag to set now' }}
+              onValueChange={setNow}
+              onTickJump={(tick) => setNow(Math.min(liveNow, tick.value + 300))}
             />
             <span className="clock tip">
               <i className={isLive ? 'live' : 'past'} />
-              {fmt.dayTime(now)} UTC
-              <span className="tipbox">{isLive ? 'Live: latest reading in the dataset' : 'Replaying the past — analysis as it would have looked then'}</span>
+              {isLive ? 'live end' : 'replay'}
+              <span className="tipbox">
+                {isLive
+                  ? 'Parked at the last reading in this dataset (not wall-clock). Coral / amber / violet ticks = failure / leak / wear onsets — click to jump.'
+                  : 'Replaying the past — detection and plans as they would have looked then. Click Back to now for the dataset end.'}
+              </span>
             </span>
             {!isLive && (
               <button className="btn sm" onClick={resetNow}><RotateCcw size={13} /> Back to now</button>
@@ -67,10 +96,10 @@ export function Layout() {
       <nav className="sidenav">
         <div className="nav-section">Operate</div>
         <NavLink to="/" end className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`}>
-          <Bell size={18} /> <span className="lbl">Alerts</span> {nFail + nOther > 0 && <span className="cnt">{nFail + nOther}</span>}
+          <MapIcon size={18} /> <span className="lbl">Map</span>
         </NavLink>
-        <NavLink to="/network" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`}>
-          <MapIcon size={18} /> <span className="lbl">Network</span>
+        <NavLink to="/alerts" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`}>
+          <Bell size={18} /> <span className="lbl">Alerts</span> {nFail + nOther > 0 && <span className="cnt">{nFail + nOther}</span>}
         </NavLink>
         <NavLink to="/plan" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`}>
           <SlidersHorizontal size={18} /> <span className="lbl">Plan</span>
@@ -88,6 +117,7 @@ export function Layout() {
               <div>{dataset.network.systems.length} systems · {dataset.network.systems.reduce((n, s) => n + s.facilities.length, 0)} facilities</div>
               <div>{dataset.telemetry.ts.length.toLocaleString()} readings × {dataset.telemetry.series.size} sensors</div>
               <div>{fmt.date(t0)} → {fmt.date(liveNow)}</div>
+              <div style={{ marginTop: 6 }}>{ticks.length} event ticks on scrubber</div>
             </>
           )}
         </div>

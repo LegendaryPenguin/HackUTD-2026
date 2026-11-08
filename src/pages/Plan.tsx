@@ -123,8 +123,8 @@ export default function Plan() {
           <p className="page-sub">Planned from {fmt.dayTime(now)} with the tank at {ctx.levelPct.toFixed(1)}%. Repair expected {fmt.time(repairEnd)}.</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {dispatched[ctx.event.id] ? <span className="chip mint" style={{ padding: '8px 12px' }}><Check size={13} /> Dispatched: {dispatched[ctx.event.id]}</span>
-            : <button className="btn primary" onClick={() => dispatch(ctx.event.id, rec.label)}><Send size={14} /> Dispatch recommended</button>}
+          {dispatched[ctx.event.id] ? <span className="chip mint" style={{ padding: '8px 12px' }}><Check size={13} /> Dispatched: {dispatched[ctx.event.id].label}</span>
+            : <button className="btn primary" onClick={() => dispatch(ctx.event.id, rec)}><Send size={14} /> Dispatch recommended</button>}
         </div>
       </div>
 

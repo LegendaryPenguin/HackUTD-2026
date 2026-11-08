@@ -18,6 +18,18 @@ export const statusLabel: Record<FacStatus, string> = {
   normal: 'Normal',
 };
 
+export interface PlanOverlayInfo {
+  label: string;
+  commitUnix: number;
+  minute: number;
+  remainingMin: number;
+  hoursToLimit: number;
+  cost: number;
+  peakPct: number;
+  trucks: number;
+  trips: number;
+}
+
 export interface LiveFacility {
   f: FacilityCtx;
   status: FacStatus;
@@ -30,6 +42,8 @@ export interface LiveFacility {
   pipePsi: number;
   wells: { id: string; status: number; water: number }[];
   events: DetectedEvent[];
+  /** Present when an operator plan is driving live stats (failures still from telemetry). */
+  planOverlay?: PlanOverlayInfo;
 }
 
 export function liveFacility(ds: Dataset, f: FacilityCtx, now: number, ongoing: DetectedEvent[]): LiveFacility {

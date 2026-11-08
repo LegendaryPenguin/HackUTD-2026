@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Dataset, DetectedEvent, FailureContext, SystemPlan } from '../lib/types';
+import type { Dataset, DetectedEvent, FailureContext, PlanOption, SystemPlan } from '../lib/types';
 import { datasetFromFiles, fetchDataset, listDatasets } from '../lib/loader';
 import { detectEvents } from '../lib/detector';
 import { failureContext, planSystem } from '../lib/planner';
 import { facilityRevPerHour } from '../lib/model';
 import type { Analysis } from '../lib/summary';
+import { buildDispatchedPlan, type DispatchedPlan } from '../lib/dispatch';
 
 interface Store {
   datasets: string[];
@@ -24,9 +25,10 @@ interface Store {
   /** operator-acknowledged events (session only) */
   acked: Set<string>;
   ack: (id: string) => void;
-  /** dispatched plans (session only) */
-  dispatched: Record<string, string>;
-  dispatch: (eventId: string, label: string) => void;
+  /** dispatched plans — drive live stats overlay; failures still from telemetry */
+  dispatched: Record<string, DispatchedPlan>;
+  dispatch: (eventId: string, plan?: PlanOption) => void;
+  clearDispatch: (eventId: string) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -38,7 +40,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [nowOverride, setNowOverride] = useState<number | null>(null);
   const [acked, setAcked] = useState<Set<string>>(new Set());
-  const [dispatched, setDispatched] = useState<Record<string, string>>({});
+  const [dispatched, setDispatched] = useState<Record<string, DispatchedPlan>>({});
   const reqId = useRef(0);
 
   const load = useCallback((name: string) => {
@@ -121,6 +123,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { now, events, ongoing, failures, systemPlans, orderedFailures };
   }, [dataset, now]);
 
+  const dispatch = useCallback((eventId: string, plan?: PlanOption) => {
+    if (!dataset) return;
+    const events = detectEvents(dataset, now);
+    const e = events.find((x) => x.id === eventId);
+    if (!e || e.category !== 'pump_failure') return;
+    const ctx = failureContext(e, dataset, now);
+    const sysPlan = planSystem(
+      events.filter((x) => x.status === 'ongoing' && x.category === 'pump_failure' && x.system === e.system)
+        .map((x) => failureContext(x, dataset, now)),
+      dataset,
+    );
+    const chosen = plan ?? sysPlan.plans[eventId];
+    if (!chosen) return;
+    setDispatched((d) => ({
+      ...d,
+      [eventId]: buildDispatchedPlan(ctx, dataset, { ...chosen, label: chosen.label }, now),
+    }));
+  }, [dataset, now]);
+
   const value: Store = {
     datasets, dataset, loading, error, load, loadFiles,
     now, liveNow, isLive: nowOverride == null,
@@ -128,7 +149,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     resetNow: () => setNowOverride(null),
     analysis,
     acked, ack: (id) => setAcked((s) => new Set(s).add(id)),
-    dispatched, dispatch: (id, label) => setDispatched((d) => ({ ...d, [id]: label })),
+    dispatched,
+    dispatch,
+    clearDispatch: (id) => setDispatched((d) => {
+      const n = { ...d };
+      delete n[id];
+      return n;
+    }),
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

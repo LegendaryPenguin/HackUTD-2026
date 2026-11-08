@@ -1,0 +1,526 @@
+[
+  {
+    "event": "EV-006",
+    "facility": "S1_FACILITY_B",
+    "system": "S1",
+    "level_pct": 35.6,
+    "fill_bbl_h": 83.3,
+    "hours_to_92": 8.12,
+    "baseline_revenue": 19229,
+    "do_nothing_loss": 0,
+    "best_label": "Do nothing (never trips)",
+    "best_cost": 0,
+    "save_vs_nothing": 0,
+    "production_kept_pct": 100,
+    "option_count": 40,
+    "families": {
+      "wait_safe": 1,
+      "do_nothing": 0,
+      "trucks_only": 4,
+      "shut_in_only": 7,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-009",
+    "facility": "S1_FACILITY_C",
+    "system": "S1",
+    "level_pct": 50.8,
+    "fill_bbl_h": 75,
+    "hours_to_92": 4.4,
+    "baseline_revenue": 19525,
+    "do_nothing_loss": 5009,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 4104,
+    "production_kept_pct": 100,
+    "option_count": 39,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 6,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 75,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 264,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 305,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-011",
+    "facility": "S2_FACILITY_B",
+    "system": "S2",
+    "level_pct": 50.8,
+    "fill_bbl_h": 66.7,
+    "hours_to_92": 4.33,
+    "baseline_revenue": 14496,
+    "do_nothing_loss": 3892,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 2987,
+    "production_kept_pct": 100,
+    "option_count": 39,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 6,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 70,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 260,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 315,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-012",
+    "facility": "S2_FACILITY_C",
+    "system": "S2",
+    "level_pct": 45.9,
+    "fill_bbl_h": 58.3,
+    "hours_to_92": 4.74,
+    "baseline_revenue": 14163,
+    "do_nothing_loss": 2805,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 1900,
+    "production_kept_pct": 100,
+    "option_count": 40,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 7,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 80,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 285,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 350,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-013",
+    "facility": "S2_FACILITY_A",
+    "system": "S2",
+    "level_pct": 50.8,
+    "fill_bbl_h": 91.7,
+    "hours_to_92": 4.49,
+    "baseline_revenue": 23260,
+    "do_nothing_loss": 5608,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 4703,
+    "production_kept_pct": 100,
+    "option_count": 39,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 6,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 85,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 269,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 340,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-014",
+    "facility": "S3_FACILITY_A",
+    "system": "S3",
+    "level_pct": 45.8,
+    "fill_bbl_h": 83.3,
+    "hours_to_92": 4.99,
+    "baseline_revenue": 21004,
+    "do_nothing_loss": 3299,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 2394,
+    "production_kept_pct": 100,
+    "option_count": 56,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 6,
+      "shut_in_only": 7,
+      "mixed": 42
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 90,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 299,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 330,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-015",
+    "facility": "S4_FACILITY_C",
+    "system": "S4",
+    "level_pct": 55.6,
+    "fill_bbl_h": 87.5,
+    "hours_to_92": 3.74,
+    "baseline_revenue": 20413,
+    "do_nothing_loss": 7506,
+    "best_label": "1 truck × 2 trips",
+    "best_cost": 1810,
+    "save_vs_nothing": 5696,
+    "production_kept_pct": 100,
+    "option_count": 38,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 5,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 90,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 224,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 320,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-018",
+    "facility": "S4_FACILITY_B",
+    "system": "S4",
+    "level_pct": 42.5,
+    "fill_bbl_h": 62.5,
+    "hours_to_92": 5.54,
+    "baseline_revenue": 15753,
+    "do_nothing_loss": 1004,
+    "best_label": "shut in well B1 at +302 min",
+    "best_cost": 469,
+    "save_vs_nothing": 535,
+    "production_kept_pct": 97,
+    "option_count": 40,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 7,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 302,
+        "kind": "shut_in",
+        "label": "Shut in well B1"
+      },
+      {
+        "t": 332,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-019",
+    "facility": "S4_FACILITY_C",
+    "system": "S4",
+    "level_pct": 41.8,
+    "fill_bbl_h": 87.5,
+    "hours_to_92": 5.16,
+    "baseline_revenue": 20413,
+    "do_nothing_loss": 2602,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 1697,
+    "production_kept_pct": 100,
+    "option_count": 40,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 7,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 90,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 310,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 320,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-020",
+    "facility": "S4_FACILITY_D",
+    "system": "S4",
+    "level_pct": 45.8,
+    "fill_bbl_h": 70.8,
+    "hours_to_92": 4.9,
+    "baseline_revenue": 17972,
+    "do_nothing_loss": 3097,
+    "best_label": "1 truck × 1 trip",
+    "best_cost": 905,
+    "save_vs_nothing": 2192,
+    "production_kept_pct": 100,
+    "option_count": 40,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 7,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 85,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 290,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 294,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  },
+  {
+    "event": "EV-021",
+    "facility": "S4_FACILITY_A",
+    "system": "S4",
+    "level_pct": 55.8,
+    "fill_bbl_h": 75,
+    "hours_to_92": 3.86,
+    "baseline_revenue": 18194,
+    "do_nothing_loss": 6320,
+    "best_label": "1 truck × 1 trip + shut in well A2 at +346 min",
+    "best_cost": 975,
+    "save_vs_nothing": 5345,
+    "production_kept_pct": 99.6,
+    "option_count": 39,
+    "families": {
+      "wait_safe": 0,
+      "do_nothing": 1,
+      "trucks_only": 4,
+      "shut_in_only": 6,
+      "mixed": 28
+    },
+    "timeline_best": [
+      {
+        "t": 0,
+        "kind": "now",
+        "label": "Now"
+      },
+      {
+        "t": 85,
+        "kind": "truck",
+        "label": "Truck arrives (−150 bbl)"
+      },
+      {
+        "t": 232,
+        "kind": "would_trip",
+        "label": "Would hit 92% if nothing done"
+      },
+      {
+        "t": 335,
+        "kind": "truck_free",
+        "label": "Truck free again"
+      },
+      {
+        "t": 346,
+        "kind": "shut_in",
+        "label": "Shut in well A2"
+      },
+      {
+        "t": 355,
+        "kind": "repair",
+        "label": "Pump repaired"
+      }
+    ]
+  }
+]

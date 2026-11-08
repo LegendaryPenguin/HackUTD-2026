@@ -13,8 +13,10 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<Alerts />} />
+            {/* Step 1 for night shift: field map at real coordinates */}
+            <Route index element={<Network />} />
             <Route path="network" element={<Network />} />
+            <Route path="alerts" element={<Alerts />} />
             <Route path="plan/:id?" element={<Plan />} />
             <Route path="trends" element={<Trends />} />
             <Route path="log" element={<ShiftLog />} />

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# bulky offline sweep dumps (tables + INDEX stay tracked)
+docs/scenario_sweeps/*_all.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
