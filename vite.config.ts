@@ -67,4 +67,12 @@ export default defineConfig({
     // Cloudflare quick tunnels rewrite Host; allow any so live preview works.
     allowedHosts: true,
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        mobile: path.resolve(__dirname, 'mobile.html'),
+      },
+    },
+  },
 })

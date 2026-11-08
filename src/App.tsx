@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { StoreProvider } from './state/store';
 import Alerts from './pages/Alerts';
@@ -11,31 +11,49 @@ import Drive from './pages/Drive';
 
 const Tycoon = lazy(() => import('./pages/Tycoon'));
 
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Network />} />
+        <Route path="network" element={<Network />} />
+        <Route path="alerts" element={<Alerts />} />
+        <Route path="plan/:id?" element={<Plan />} />
+        <Route path="trends" element={<Trends />} />
+        <Route path="crew" element={<Crew />} />
+        <Route path="shifts" element={<Crew />} />
+        <Route path="drive" element={<Drive />} />
+        <Route
+          path="tycoon"
+          element={
+            <Suspense fallback={<div className="loader"><div className="box"><div className="muted">Loading field…</div></div></div>}>
+              <Tycoon />
+            </Suspense>
+          }
+        />
+      </Route>
+    </Routes>
+  );
+}
+
+/** Desktop / normal web entry — unchanged browser history routing. */
 export default function App() {
   return (
     <StoreProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<Network />} />
-            <Route path="network" element={<Network />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="plan/:id?" element={<Plan />} />
-            <Route path="trends" element={<Trends />} />
-            <Route path="crew" element={<Crew />} />
-            <Route path="shifts" element={<Crew />} />
-            <Route path="drive" element={<Drive />} />
-            <Route
-              path="tycoon"
-              element={
-                <Suspense fallback={<div className="loader"><div className="box"><div className="muted">Loading field…</div></div></div>}>
-                  <Tycoon />
-                </Suspense>
-              }
-            />
-          </Route>
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
+    </StoreProvider>
+  );
+}
+
+/** Separate mobile PWA entry — hash routes so install stays on mobile.html. */
+export function MobileApp() {
+  return (
+    <StoreProvider>
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>
     </StoreProvider>
   );
 }

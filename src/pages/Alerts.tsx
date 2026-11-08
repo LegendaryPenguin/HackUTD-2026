@@ -7,7 +7,7 @@ import { CATEGORY_LABEL, fmt } from '../lib/model';
 import type { FailureContext } from '../lib/types';
 import { WaterJug3D } from '../components/WaterJug3D';
 import { OccurredStamp } from '../components/OccurredStamp';
-import { CategoryChip, Confidence, Countdown, fadeUp } from '../components/ui';
+import { CategoryChip, Confidence, Countdown, fadeUp, fadeUpAt } from '../components/ui';
 import { TruckIcon } from '../components/Icons';
 import type { DispatchedPlan } from '../lib/dispatch';
 import { planStillActive } from '../lib/dispatch';
@@ -78,7 +78,7 @@ export default function Alerts() {
           <div className="alerts-fail-list">
             <AnimatePresence initial={false}>
               {failures.map((c, i) => (
-                <FailureCard key={c.event.id} ctx={c} rank={i + 1} limits={limits} dispatched={dispatched[c.event.id]} />
+                <FailureCard key={c.event.id} ctx={c} rank={i + 1} limits={limits} dispatched={dispatched[c.event.id]} enterIndex={i} />
               ))}
             </AnimatePresence>
           </div>
@@ -200,11 +200,13 @@ function FailureCard({
   rank,
   limits,
   dispatched,
+  enterIndex = 0,
 }: {
   ctx: FailureContext;
   rank: number;
   limits: { warning: number; shutdown: number };
   dispatched?: DispatchedPlan;
+  enterIndex?: number;
 }) {
   const { dataset, analysis, now } = useStore();
   if (!dataset || !analysis) return null;
@@ -232,7 +234,7 @@ function FailureCard({
     <motion.article
       layout
       className={`alert-fail alert-status-card${urgent ? ' is-urgent' : ''}${live ? ' is-live' : ''}`}
-      {...fadeUp}
+      {...fadeUpAt(enterIndex)}
     >
       <div className="alert-status-head">
         <div className="alert-rank">{rank}</div>

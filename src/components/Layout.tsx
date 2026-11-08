@@ -8,8 +8,10 @@ import { TideDock } from './TideDock';
 
 export function Layout() {
   const { dataset, loading, analysis } = useStore();
-  /** Map-first: rail closed until operator opens it. */
-  const [railOpen, setRailOpen] = useState(false);
+  const isMobilePwa =
+    typeof document !== 'undefined' && document.documentElement.classList.contains('ng-mobile-pwa');
+  /** Map-first: rail closed until operator opens it. Mobile PWA keeps bottom tabs visible. */
+  const [railOpen, setRailOpen] = useState(isMobilePwa);
   const location = useLocation();
   const nFail = analysis?.orderedFailures.length ?? 0;
   const nOther = (analysis?.ongoing.length ?? 0) - nFail;
@@ -21,10 +23,15 @@ export function Layout() {
   const fieldBackdrop = !mapMode && !tycoonMode;
   const showOutlet = !!dataset || tycoonMode;
 
-  // Map-first: arriving on the field map always tucks the sidebar away
+  // Map-first: arriving on the field map always tucks the sidebar away.
+  // Mobile PWA uses a persistent bottom tab bar — keep it "open".
   useEffect(() => {
+    if (isMobilePwa) {
+      setRailOpen(true);
+      return;
+    }
     if (mapMode) setRailOpen(false);
-  }, [mapMode, location.pathname]);
+  }, [mapMode, location.pathname, isMobilePwa]);
 
   return (
     <div

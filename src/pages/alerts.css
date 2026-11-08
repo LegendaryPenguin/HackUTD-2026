@@ -94,6 +94,7 @@
   align-items: flex-end;
   gap: 1px;
   line-height: 1.1;
+  animation: stampThump 0.42s cubic-bezier(0.22, 1.2, 0.36, 1) both;
 }
 .occurred-stamp__label {
   font-size: 9px;

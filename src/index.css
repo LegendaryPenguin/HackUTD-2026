@@ -277,11 +277,11 @@ body:has(.shell.field-backdrop)::before {
 .shell.drive-mode .side-rail,
 .shell.drive-mode.field-backdrop .side-rail,
 .shell.tycoon-mode .side-rail {
-  background: rgba(5, 8, 7, 0.94);
-  border-right: 1px solid rgba(132, 241, 180, 0.18);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.35);
+  background: #050807;
+  border-right: 1px solid rgba(132, 241, 180, 0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.55);
 }
 .shell.field-backdrop .tide-ambient {
   display: none;
@@ -836,179 +836,144 @@ body:has(.shell.field-backdrop)::before {
 @media (max-width: 1000px) {
   .split { grid-template-columns: 1fr !important; }
 }
+/* Narrow desktop web: content wraps only — shell/nav stay desktop. */
 @media (max-width: 900px) {
-  :root {
-    --top-h: 0px;
-    --nav-bottom-h: calc(60px + env(safe-area-inset-bottom, 0px));
-    --map-rail-h: 108px;
-  }
-
   .fail-grid { grid-template-columns: auto 1fr; gap: 12px 14px; padding: 14px; }
   .fail-grid > :nth-child(3), .fail-grid > :nth-child(4) { grid-column: 1 / -1; }
   .fail-grid > :nth-child(4) { flex-direction: row !important; flex-wrap: wrap; }
   .page-head { flex-direction: column; align-items: flex-start; gap: 10px; }
-
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) var(--nav-bottom-h);
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-  .main { grid-row: 1; padding-left: 0 !important; }
-  .topbar { display: none !important; }
-
-  .timebar { margin-left: auto; flex: 0 0 auto; max-width: 46%; }
-  .time-chip {
-    max-width: 100%;
-    gap: 6px;
-    padding: 5px 7px 5px 8px;
-    border-radius: 11px;
-  }
-  .time-chip-copy strong { font-size: 9px; }
-  .time-chip-copy em { max-width: 88px; font-size: 11px; }
-  .time-chip-rail { display: none; }
-  .time-deck-panel { right: 0; left: 8px; width: auto; }
-
-  .clock { font-size: 11px; padding: 6px 8px; }
-  .page { padding: 14px 12px 28px; max-width: 100%; }
-  .tide-ambient { display: none; }
-  .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .page-head > div:last-child, .card-title { flex-wrap: wrap; }
   .card-title .muted { margin-left: 0; width: 100%; }
-
-  /* Map phone layout: filters top, finances above timeline, no side clip.
-     MENU fab is hidden here, so chips can sit flush left again. */
-  .map-screen,
-  .map-stage {
-    touch-action: manipulation;
-  }
-  .shell.map-mode .map-stage {
-    padding-bottom: calc(var(--map-rail-h, 96px) + var(--nav-bottom-h, 60px) + 10px);
-  }
-  .map-svg {
-    /* Keep clusters readable on tall phone screens */
-    max-height: none;
-    height: 100%;
-  }
-  .map-float-tl,
-  .shell.map-mode.is-rail-closed .map-float-tl {
-    top: 6px;
-    left: 6px;
-    right: 6px;
-    max-width: none;
-    width: auto;
-    z-index: 7;
-    gap: 6px;
-  }
-  .map-float-tl .seg {
-    max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-    padding: 4px;
-    border-radius: 14px;
-    background: rgba(6, 14, 22, 0.55);
-  }
-  .map-float-tl .seg::-webkit-scrollbar { display: none; }
-  .map-float-tl .seg button {
-    padding: 8px 12px;
-    font-size: 12px;
-    min-height: 36px;
-    flex-shrink: 0;
-  }
-  .map-status-chips {
-    max-width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: none;
-    gap: 6px;
-  }
-  .map-status-chips::-webkit-scrollbar { display: none; }
-  .map-status-chips .chip.ghost { display: none; }
-  .map-status-chips .btn {
-    min-height: 36px;
-    padding: 8px 12px;
-  }
-
-  .map-float-tr {
-    top: auto !important;
-    right: 6px !important;
-    left: 6px;
-    bottom: calc(6px + var(--map-rail-h, 96px));
-    max-width: none !important;
-    width: auto;
-    z-index: 8;
-  }
-
-  .map-float-rail {
-    left: 4px;
-    right: 4px;
-    bottom: 4px;
-  }
-  .map-float-bl.map-legend { display: none; }
-
-  .triage-scrim, .calc-scrim {
-    padding: 8px;
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  }
-  .triage-scrim--status {
-    align-items: flex-end;
-    padding-top: 8px;
-  }
-  .avon-status__viz {
-    grid-template-columns: auto 1fr;
-    gap: 10px;
-  }
-  .avon-status__spark--lg { height: 110px; }
-  .shell.is-rail-open .triage-scrim,
-  .shell.is-rail-open .calc-scrim {
-    padding-left: 8px;
-  }
-  .triage-card,
-  .avon-panel {
-    width: min(100%, 520px);
-    max-height: min(82dvh, 720px);
-  }
-  .avon-status__chips { grid-template-columns: 1fr; }
-  .cost-strip { grid-template-columns: 1fr; }
   .event-row { grid-template-columns: 1fr; }
   .grid.c2 { grid-template-columns: 1fr; }
+  .table { display: block; overflow-x: auto; }
+}
 
-  /* Mobile compatibility — same features, tighter chrome */
-  .occurred-stamp {
-    min-width: 0;
-    width: 100%;
-    align-items: flex-start;
-    text-align: left;
-  }
-  .alert-status-head {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .alert-fail-actions .btn,
-  .alert-inspect-actions .btn,
-  .crew-panel-actions .btn {
-    min-height: 40px;
-  }
-  .page {
-    padding-left: max(12px, env(safe-area-inset-left, 0px));
-    padding-right: max(12px, env(safe-area-inset-right, 0px));
-  }
-  .shell.drive-mode .main,
-  .shell.tycoon-mode .main {
-    padding-bottom: calc(var(--nav-bottom-h, 60px) + env(safe-area-inset-bottom, 0px));
-  }
-  .handoff-modal {
-    padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(12px, env(safe-area-inset-bottom, 0px));
-  }
-  .handoff-modal-panel {
-    width: min(100%, 420px);
-    max-height: min(90dvh, 900px);
-  }
+/* Separate mobile PWA shell (mobile.html) — does not apply to normal web */
+html.ng-mobile-pwa {
+  --top-h: 0px;
+  --nav-bottom-h: calc(60px + env(safe-area-inset-bottom, 0px));
+  --map-rail-h: 108px;
+}
+html.ng-mobile-pwa .shell {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--nav-bottom-h);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+html.ng-mobile-pwa .main { grid-row: 1; padding-left: 0 !important; }
+html.ng-mobile-pwa .topbar { display: none !important; }
+html.ng-mobile-pwa .tide-ambient { display: none; }
+html.ng-mobile-pwa .page {
+  padding: 14px max(12px, env(safe-area-inset-right, 0px)) 28px max(12px, env(safe-area-inset-left, 0px));
+  max-width: 100%;
+}
+html.ng-mobile-pwa .timebar { margin-left: auto; flex: 0 0 auto; max-width: 46%; }
+html.ng-mobile-pwa .time-chip {
+  max-width: 100%;
+  gap: 6px;
+  padding: 5px 7px 5px 8px;
+  border-radius: 11px;
+}
+html.ng-mobile-pwa .time-chip-copy strong { font-size: 9px; }
+html.ng-mobile-pwa .time-chip-copy em { max-width: 88px; font-size: 11px; }
+html.ng-mobile-pwa .time-chip-rail { display: none; }
+html.ng-mobile-pwa .time-deck-panel { right: 0; left: 8px; width: auto; }
+html.ng-mobile-pwa .clock { font-size: 11px; padding: 6px 8px; }
+html.ng-mobile-pwa .map-screen,
+html.ng-mobile-pwa .map-stage { touch-action: manipulation; }
+html.ng-mobile-pwa .shell.map-mode .map-stage {
+  padding-bottom: calc(var(--map-rail-h, 96px) + var(--nav-bottom-h, 60px) + 10px);
+}
+html.ng-mobile-pwa .map-svg { max-height: none; height: 100%; }
+html.ng-mobile-pwa .map-float-tl,
+html.ng-mobile-pwa .shell.map-mode.is-rail-closed .map-float-tl {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  max-width: none;
+  width: auto;
+  z-index: 7;
+  gap: 6px;
+}
+html.ng-mobile-pwa .map-float-tl .seg {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(6, 14, 22, 0.55);
+}
+html.ng-mobile-pwa .map-float-tl .seg::-webkit-scrollbar { display: none; }
+html.ng-mobile-pwa .map-float-tl .seg button {
+  padding: 8px 12px;
+  font-size: 12px;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+html.ng-mobile-pwa .map-status-chips {
+  max-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  gap: 6px;
+}
+html.ng-mobile-pwa .map-status-chips::-webkit-scrollbar { display: none; }
+html.ng-mobile-pwa .map-status-chips .chip.ghost { display: none; }
+html.ng-mobile-pwa .map-status-chips .btn { min-height: 36px; padding: 8px 12px; }
+html.ng-mobile-pwa .map-float-tr {
+  top: auto !important;
+  right: 6px !important;
+  left: 6px;
+  bottom: calc(6px + var(--map-rail-h, 96px));
+  max-width: none !important;
+  width: auto;
+  z-index: 8;
+}
+html.ng-mobile-pwa .map-float-rail { left: 4px; right: 4px; bottom: 4px; }
+html.ng-mobile-pwa .map-float-bl.map-legend { display: none; }
+html.ng-mobile-pwa .triage-scrim,
+html.ng-mobile-pwa .calc-scrim {
+  padding: 8px;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+html.ng-mobile-pwa .triage-scrim--status { align-items: flex-end; padding-top: 8px; }
+html.ng-mobile-pwa .avon-status__viz { grid-template-columns: auto 1fr; gap: 10px; }
+html.ng-mobile-pwa .avon-status__spark--lg { height: 110px; }
+html.ng-mobile-pwa .shell.is-rail-open .triage-scrim,
+html.ng-mobile-pwa .shell.is-rail-open .calc-scrim { padding-left: 8px; }
+html.ng-mobile-pwa .triage-card,
+html.ng-mobile-pwa .avon-panel {
+  width: min(100%, 520px);
+  max-height: min(82dvh, 720px);
+}
+html.ng-mobile-pwa .avon-status__chips { grid-template-columns: 1fr; }
+html.ng-mobile-pwa .cost-strip { grid-template-columns: 1fr; }
+html.ng-mobile-pwa .occurred-stamp {
+  min-width: 0;
+  width: 100%;
+  align-items: flex-start;
+  text-align: left;
+}
+html.ng-mobile-pwa .alert-status-head { flex-wrap: wrap; gap: 10px; }
+html.ng-mobile-pwa .alert-fail-actions .btn,
+html.ng-mobile-pwa .alert-inspect-actions .btn,
+html.ng-mobile-pwa .crew-panel-actions .btn { min-height: 40px; }
+html.ng-mobile-pwa .shell.drive-mode .main,
+html.ng-mobile-pwa .shell.tycoon-mode .main {
+  padding-bottom: calc(var(--nav-bottom-h, 60px) + env(safe-area-inset-bottom, 0px));
+}
+html.ng-mobile-pwa .handoff-modal {
+  padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(12px, env(safe-area-inset-bottom, 0px));
+}
+html.ng-mobile-pwa .handoff-modal-panel {
+  width: min(100%, 420px);
+  max-height: min(90dvh, 900px);
 }
 
 @media (prefers-reduced-motion: reduce) {

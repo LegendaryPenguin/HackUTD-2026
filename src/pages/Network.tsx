@@ -367,6 +367,7 @@ export default function Network() {
                 k={transform.k}
                 focused={sysFocus === s.id}
                 pinScale={pinScale}
+                actPulseId={actPulseId}
               />
             ))}
           </g>
@@ -482,7 +483,11 @@ function tipAwayFromHub(
   return { x, y, anchor };
 }
 
-function SystemLayer({ sys, station, live, hover, setHover, selected, failureId, onSelect, dim, k, focused, pinScale }: {
+function isCritical(status: LiveFacility['status']) {
+  return status === 'failure' || status === 'leak' || status === 'wear' || status === 'warning';
+}
+
+function SystemLayer({ sys, station, live, hover, setHover, selected, failureId, onSelect, dim, k, focused, pinScale, actPulseId }: {
   sys: System;
   station: StationLayout;
   live: Map<string, LiveFacility>;
@@ -490,6 +495,7 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
   failureId: string | null;
   onSelect: (id: string) => void;
   dim: boolean; k: number; focused: boolean; pinScale: number;
+  actPulseId: string | null;
 }) {
   const [dx, dy] = station.disposal;
   const [yx, yy] = station.yard;
