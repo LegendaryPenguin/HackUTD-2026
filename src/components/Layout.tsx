@@ -77,7 +77,7 @@ export function Layout() {
           <div className="empty" style={{ height: '100%' }}>
             <div>
               <h2 className="page-title">No dataset found</h2>
-              <p>Put a folder with <code>network.json</code>, <code>ops.json</code> and <code>telemetry.csv</code> under <code>data/</code>, or open the menu and use <b>Open folder</b>.</p>
+              <p>Put a folder with <code>network.json</code>, <code>ops.json</code> and <code>telemetry.csv</code> under <code>data/</code>, or open the menu and use <b>Add new week</b>.</p>
             </div>
           </div>
         )}

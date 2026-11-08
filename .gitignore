@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# generated at build for static hosts (source of truth is ./data)
+public/data/
+
+# vercel
+.vercel
+
 # bulky offline sweep dumps (tables + INDEX stay tracked)
 docs/scenario_sweeps/*_all.json
 

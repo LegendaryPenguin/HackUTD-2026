@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutGroup,
@@ -12,19 +12,40 @@ import {
 import {
   Activity,
   Bell,
-  ChevronDown,
-  FolderOpen,
+  FileJson,
+  FileSpreadsheet,
   Fuel,
   Map as MapIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
   SlidersHorizontal,
   Truck,
   Users,
+  X,
 } from 'lucide-react';
 import { useStore } from '../../state/store';
-import { fmt } from '../../lib/model';
 import './side-rail.css';
+
+type WeekSlot = 'network' | 'ops' | 'telemetry';
+
+const WEEK_SLOTS: {
+  key: WeekSlot;
+  label: string;
+  hint: string;
+  accept: string;
+  Icon: typeof FileJson;
+}[] = [
+  { key: 'network', label: 'network.json', hint: 'Facility / well layout', accept: '.json,application/json', Icon: FileJson },
+  { key: 'ops', label: 'ops.json', hint: 'Prices, trucks, repair hours', accept: '.json,application/json', Icon: FileJson },
+  { key: 'telemetry', label: 'telemetry.csv', hint: 'Sensor readings for the week', accept: '.csv,text/csv', Icon: FileSpreadsheet },
+];
+
+/** Normalize whatever the judges named the file into the expected challenge name. */
+function asChallengeFile(file: File, canonical: string): File {
+  if (file.name === canonical) return file;
+  return new File([file], canonical, { type: file.type || undefined, lastModified: file.lastModified });
+}
 
 type RailLink = {
   to: string;
@@ -48,8 +69,16 @@ export function SideRail({
 }) {
   const reduce = useReducedMotion();
   const mouseY = useMotionValue(-9999);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const { datasets, dataset, load, loadFiles, loading, error, liveNow } = useStore();
+  const slotRefs = useRef<Record<WeekSlot, HTMLInputElement | null>>({
+    network: null,
+    ops: null,
+    telemetry: null,
+  });
+  const [weekOpen, setWeekOpen] = useState(false);
+  const [weekFiles, setWeekFiles] = useState<Partial<Record<WeekSlot, File>>>({});
+  const [weekError, setWeekError] = useState<string | null>(null);
+  const { loadWeekParts, loading } = useStore();
+  const weekReady = !!(weekFiles.network && weekFiles.ops && weekFiles.telemetry);
 
   useEffect(() => {
     const shell = document.querySelector('.shell');
@@ -68,6 +97,42 @@ export function SideRail({
     mouseY.set(e.clientY);
   };
   const onLeave = () => mouseY.set(-9999);
+
+  const openWeekModal = () => {
+    setWeekError(null);
+    setWeekFiles({});
+    setWeekOpen(true);
+  };
+
+  const onSlotFile = (key: WeekSlot, file: File | undefined) => {
+    if (!file) return;
+    const okExt =
+      (key === 'telemetry' && /\.csv$/i.test(file.name)) ||
+      (key !== 'telemetry' && /\.json$/i.test(file.name));
+    if (!okExt) {
+      setWeekError(key === 'telemetry' ? 'telemetry must be a .csv file' : `${key} must be a .json file`);
+      return;
+    }
+    setWeekError(null);
+    setWeekFiles((prev) => ({ ...prev, [key]: file }));
+  };
+
+  const submitNewWeek = () => {
+    if (!weekFiles.network || !weekFiles.ops || !weekFiles.telemetry) return;
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '');
+    loadWeekParts(
+      {
+        network: asChallengeFile(weekFiles.network, 'network.json'),
+        ops: asChallengeFile(weekFiles.ops, 'ops.json'),
+        telemetry: asChallengeFile(weekFiles.telemetry, 'telemetry.csv'),
+      },
+      `new_week_${stamp}`,
+    );
+    setWeekOpen(false);
+    setWeekFiles({});
+    setWeekError(null);
+    onOpenChange(false);
+  };
 
   const operate: RailLink[] = [
     { to: '/', end: true, label: 'Field map', short: 'Map', sub: 'Basin live', icon: MapIcon },
@@ -117,41 +182,6 @@ export function SideRail({
             </button>
           </div>
 
-          <div className="rail-dataset">
-            <div className="rail-group-label">Dataset</div>
-            <div className="rail-select" title="Dataset folder (data/<folder>)">
-              <select value={dataset?.name ?? ''} onChange={(e) => load(e.target.value)} disabled={!!loading}>
-                {dataset && !datasets.includes(dataset.name) && <option value={dataset.name}>{dataset.name}</option>}
-                {datasets.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} />
-            </div>
-            <button
-              type="button"
-              className="rail-folder-btn"
-              onClick={() => fileRef.current?.click()}
-              title="Open a folder with network.json, ops.json, telemetry.csv"
-            >
-              <FolderOpen size={14} /> Open folder
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              hidden
-              {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
-              multiple
-              onChange={(e) => e.target.files && loadFiles(e.target.files)}
-            />
-            {error && <span className="chip coral" style={{ width: '100%', justifyContent: 'center' }}>{error}</span>}
-            {dataset && (
-              <span className="rail-live" title={fmt.dayTime(liveNow)}>
-                <i className="dot live" /> LIVE END · {fmt.dayTime(liveNow)}
-              </span>
-            )}
-          </div>
-
           <div className="rail-nav">
             <LayoutGroup id="side-rail">
               <div className="rail-group">
@@ -163,7 +193,6 @@ export function SideRail({
                     reduce={!!reduce}
                     mouseY={mouseY}
                     onNavigate={() => {
-                      // Field map is map-first — close the drawer when entering it
                       if (item.to === '/' || item.to === '/network') onOpenChange(false);
                     }}
                   />
@@ -178,8 +207,78 @@ export function SideRail({
               </div>
             </LayoutGroup>
           </div>
+
+          <div className="rail-week">
+            <button
+              type="button"
+              className="rail-week-btn"
+              disabled={!!loading}
+              onClick={openWeekModal}
+            >
+              <Plus size={15} />
+              Add new week
+            </button>
+          </div>
         </div>
       </nav>
+
+      {weekOpen && (
+        <div className="week-modal" role="dialog" aria-modal="true" aria-label="Add new week">
+          <button type="button" className="week-modal-scrim" aria-label="Close" onClick={() => setWeekOpen(false)} />
+          <div className="week-modal-panel">
+            <div className="week-modal-head">
+              <div>
+                <h2>Add new week</h2>
+                <p>Upload the three challenge files. Names are normalized automatically.</p>
+              </div>
+              <button type="button" className="week-modal-x" aria-label="Close" onClick={() => setWeekOpen(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="week-modal-slots">
+              {WEEK_SLOTS.map(({ key, label, hint, accept, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`week-modal-slot${weekFiles[key] ? ' is-ready' : ''}`}
+                  onClick={() => slotRefs.current[key]?.click()}
+                  disabled={!!loading}
+                >
+                  <Icon size={16} />
+                  <span className="week-modal-slot-text">
+                    <strong>{label}</strong>
+                    <em>{weekFiles[key] ? weekFiles[key]!.name : hint}</em>
+                  </span>
+                  <input
+                    ref={(el) => {
+                      slotRefs.current[key] = el;
+                    }}
+                    type="file"
+                    accept={accept}
+                    hidden
+                    onChange={(e) => {
+                      onSlotFile(key, e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {weekError && <div className="week-modal-error">{weekError}</div>}
+
+            <button
+              type="button"
+              className="week-modal-load"
+              disabled={!weekReady || !!loading}
+              onClick={submitNewWeek}
+            >
+              Load week
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

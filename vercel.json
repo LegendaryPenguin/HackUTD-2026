@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/((?!mobile\\.html|assets/|data/|docs/|drive/|emblem\\.jpg|favicon\\.svg|icons\\.svg|manifest\\.mobile\\.webmanifest|sw-mobile\\.js).*)", "destination": "/index.html" }
+  ]
+}

@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Dataset, DetectedEvent, FailureContext, PlanOption, SystemPlan } from '../lib/types';
-import { datasetFromFiles, fetchDataset, listDatasets } from '../lib/loader';
+import { datasetFromFiles, datasetFromParts, fetchDataset, listDatasets } from '../lib/loader';
 import { detectEvents } from '../lib/detector';
 import { failureContext, planSystem } from '../lib/planner';
 import { facilityRevPerHour } from '../lib/model';
@@ -15,6 +15,8 @@ interface Store {
   error: string | null;
   load: (name: string) => void;
   loadFiles: (files: FileList) => void;
+  /** Judging / challenge handoff — three files make a new week. */
+  loadWeekParts: (parts: { network: File; ops: File; telemetry: File }, name?: string) => void;
   /** "now" used for all analysis (time travel); defaults to last telemetry ts */
   now: number;
   liveNow: number;
@@ -70,6 +72,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  const applyDataset = useCallback((d: Dataset) => {
+    setDataset(d);
+    setNowOverride(null);
+    setAcked(new Set());
+    setDispatched({});
+    setSimulating(null);
+    setLoading(null);
+    setDatasets((prev) => (prev.includes(d.name) ? prev : [...prev, d.name]));
+    localStorage.setItem('avon:dataset', d.name);
+  }, []);
+
   const loadFiles = useCallback((files: FileList) => {
     const id = ++reqId.current;
     setError(null);
@@ -77,19 +90,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     datasetFromFiles(files, (m) => id === reqId.current && setLoading(m))
       .then((d) => {
         if (id !== reqId.current) return;
-        setDataset(d);
-        setNowOverride(null);
-        setAcked(new Set());
-        setDispatched({});
-        setSimulating(null);
-        setLoading(null);
+        applyDataset(d);
       })
       .catch((e) => {
         if (id !== reqId.current) return;
         setError(String(e?.message ?? e));
         setLoading(null);
       });
-  }, []);
+  }, [applyDataset]);
+
+  const loadWeekParts = useCallback((
+    parts: { network: File; ops: File; telemetry: File },
+    name = 'new_week',
+  ) => {
+    const id = ++reqId.current;
+    setError(null);
+    setLoading('Loading new week…');
+    datasetFromParts(parts, name, (m) => id === reqId.current && setLoading(m))
+      .then((d) => {
+        if (id !== reqId.current) return;
+        applyDataset(d);
+      })
+      .catch((e) => {
+        if (id !== reqId.current) return;
+        setError(String(e?.message ?? e));
+        setLoading(null);
+      });
+  }, [applyDataset]);
 
   useEffect(() => {
     listDatasets().then((list) => {
@@ -166,7 +193,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: Store = {
-    datasets, dataset, loading, error, load, loadFiles,
+    datasets, dataset, loading, error, load, loadFiles, loadWeekParts,
     now, liveNow, isLive: nowOverride == null && !simulating,
     setNow: (u) => setNowOverride(u >= liveNow ? null : u),
     resetNow: () => { setNowOverride(null); },

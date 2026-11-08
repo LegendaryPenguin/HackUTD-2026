@@ -1,8 +1,8 @@
 {
   "id": "/mobile.html",
-  "name": "Night Guard Mobile",
-  "short_name": "Night Guard",
-  "description": "Standalone mobile ops console for tank batteries, pump failures, and response plans.",
+  "name": "FlowState",
+  "short_name": "FlowState",
+  "description": "FlowState mobile ops console for tank batteries, pump failures, and response plans.",
   "start_url": "./mobile.html",
   "scope": "./",
   "display": "standalone",

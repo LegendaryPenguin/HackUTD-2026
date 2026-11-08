@@ -78,6 +78,34 @@ export async function listDatasets(): Promise<string[]> {
   }
 }
 
+/** Load from the three challenge files (network / ops / telemetry). */
+export async function datasetFromParts(
+  parts: { network: File; ops: File; telemetry: File },
+  name = 'new_week',
+  onProgress?: (m: string) => void,
+): Promise<Dataset> {
+  onProgress?.('Reading files…');
+  let network: Network;
+  let opsJ: Ops;
+  let text: string;
+  try {
+    [network, opsJ, text] = await Promise.all([
+      parts.network.text().then((t) => JSON.parse(t) as Network),
+      parts.ops.text().then((t) => JSON.parse(t) as Ops),
+      parts.telemetry.text(),
+    ]);
+  } catch (e) {
+    throw new Error(`Could not read challenge files: ${String((e as Error)?.message ?? e)}`);
+  }
+  if (!network?.systems?.length) throw new Error('network.json looks empty — need systems/facilities');
+  if (!opsJ?.prices) throw new Error('ops.json missing prices / ops fields');
+  if (!text || !text.includes(',')) throw new Error('telemetry.csv looks empty or invalid');
+  onProgress?.('Indexing sensors…');
+  const telemetry = parseTelemetry(text);
+  if (!telemetry.ts.length) throw new Error('telemetry.csv had no timestamps');
+  return { name, network, ops: opsJ, telemetry };
+}
+
 /** Load from a user-picked folder (input webkitdirectory) */
 export async function datasetFromFiles(files: FileList, onProgress?: (m: string) => void): Promise<Dataset> {
   const find = (n: string) => Array.from(files).find((f) => f.name.toLowerCase() === n);
@@ -85,14 +113,7 @@ export async function datasetFromFiles(files: FileList, onProgress?: (m: string)
   const ops = find('ops.json');
   const tel = find('telemetry.csv');
   if (!net || !ops || !tel) throw new Error('Folder must contain network.json, ops.json and telemetry.csv');
-  onProgress?.('Reading files…');
-  const [network, opsJ, text] = await Promise.all([
-    net.text().then((t) => JSON.parse(t) as Network),
-    ops.text().then((t) => JSON.parse(t) as Ops),
-    tel.text(),
-  ]);
-  onProgress?.('Indexing sensors…');
   const rel = (tel as File & { webkitRelativePath?: string }).webkitRelativePath ?? '';
   const name = rel.split('/')[0] || 'custom';
-  return { name, network, ops: opsJ, telemetry: parseTelemetry(text) };
+  return datasetFromParts({ network: net, ops, telemetry: tel }, name, onProgress);
 }
