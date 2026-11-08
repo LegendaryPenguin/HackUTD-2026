@@ -95,6 +95,7 @@ export function FacilityTriageCard({
 
   const commit = () => {
     dispatch(fail.event.id, selected);
+    window.dispatchEvent(new CustomEvent('avon:act', { detail: { facilityId: fail.facility.id } }));
     onClose();
   };
 

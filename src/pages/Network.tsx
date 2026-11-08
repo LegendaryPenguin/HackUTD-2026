@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Maximize2 } from 'lucide-react';
 import { useStore } from '../state/store';
 import { facilities, fmt, hoursToLimit } from '../lib/model';
 import type { System } from '../lib/types';
@@ -93,15 +92,11 @@ function buildStationLayout(systems: System[]): Map<string, StationLayout> {
   return out;
 }
 
-function isCritical(status: LiveFacility['status']) {
-  return status === 'failure' || status === 'leak' || status === 'wear';
-}
-
 export default function Network() {
   const { dataset, analysis, now, dispatched } = useStore();
   const [params, setParams] = useSearchParams();
   const [hover, setHover] = useState<string | null>(null);
-  const [manualFocus, setManualFocus] = useState<string | null>(null);
+  const [actPulseId, setActPulseId] = useState<string | null>(null);
   const selectedId = params.get('f');
 
   const facs = useMemo(() => (dataset ? facilities(dataset.network, dataset.ops) : []), [dataset]);
@@ -114,6 +109,22 @@ export default function Network() {
       return [f.id, L] as const;
     }));
   }, [dataset, analysis, facs, now, dispatched]);
+
+  useEffect(() => {
+    let timer = 0;
+    const onAct = (ev: Event) => {
+      const id = (ev as CustomEvent<{ facilityId?: string }>).detail?.facilityId;
+      if (!id) return;
+      setActPulseId(id);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setActPulseId((cur) => (cur === id ? null : cur)), 1800);
+    };
+    window.addEventListener('avon:act', onAct);
+    return () => {
+      window.removeEventListener('avon:act', onAct);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   const [narrow, setNarrow] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -135,10 +146,10 @@ export default function Network() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, []);
-  // Fresh framing whenever focus / selection changes.
+  // Fresh framing whenever selection changes.
   useEffect(() => {
     setPan({ x: 0, y: 0 });
-  }, [manualFocus, selectedId]);
+  }, [selectedId]);
   const pinScale = narrow ? 0.7 : 1;
 
   const layout = useMemo(
@@ -148,10 +159,9 @@ export default function Network() {
 
   if (!dataset || !analysis || !layout) return null;
 
-  // a selected facility always focuses its own system; otherwise use the manual pick
+  // Zoom into the selected facility's system; otherwise show the full field.
   const selectedFac = selectedId ? facs.find((x) => x.id === selectedId) : undefined;
-  const sysFocus = selectedFac ? selectedFac.system : manualFocus;
-  const setSysFocus = (id: string | null) => { setManualFocus(id); if (selectedId) setParams({}); };
+  const sysFocus = selectedFac?.system ?? null;
 
   // Zoom a notch past "fit" so edges stick out — drag to slide stations toward center.
   const focusSys = dataset.network.systems.find((s) => s.id === sysFocus) ?? null;
@@ -223,15 +233,6 @@ export default function Network() {
     const hit = analysis.orderedFailures.find((c) => c.facility.system === systemId);
     return hit?.facility.id ?? null;
   };
-
-  const counts = { failure: 0, leak: 0, wear: 0, warning: 0, normal: 0 } as Record<string, number>;
-  for (const l of live.values()) counts[l.status]++;
-
-  const needYou = counts.failure + counts.leak + counts.wear;
-  const failureIds = [...live.values()].filter((l) => l.status === 'failure').map((l) => l.f.id);
-  const criticalIds = failureIds.length
-    ? failureIds
-    : [...live.values()].filter((l) => isCritical(l.status)).map((l) => l.f.id);
 
   return (
     <div className="map-screen">
@@ -370,50 +371,6 @@ export default function Network() {
             ))}
           </g>
         </svg>
-        </div>
-
-        <div className="map-float map-float-tl">
-          <div className="seg">
-            <button className={!sysFocus ? 'on' : ''} onClick={() => { setSysFocus(null); }}><Maximize2 size={12} style={{ verticalAlign: -2, marginRight: 4 }} />All</button>
-            {dataset.network.systems.map((s) => {
-              const hot = s.facilities.some((f) => {
-                const st = live.get(f.id)?.status;
-                return st === 'failure' || st === 'leak' || st === 'wear';
-              });
-              const tone = s.facilities.some((f) => live.get(f.id)?.status === 'failure')
-                ? 'var(--coral)'
-                : s.facilities.some((f) => live.get(f.id)?.status === 'leak')
-                  ? 'var(--amber)'
-                  : 'var(--violet)';
-              return (
-                <button key={s.id} className={sysFocus === s.id ? 'on' : ''} onClick={() => setSysFocus(s.id)} style={{ color: hot && sysFocus !== s.id ? tone : undefined }}>
-                  {s.id}
-                </button>
-              );
-            })}
-          </div>
-          <div className="map-status-chips">
-            {needYou > 0 && (
-              <button
-                type="button"
-                className="btn primary sm"
-                onClick={() => {
-                  const next = criticalIds.find((id) => id !== selectedId) ?? criticalIds[0];
-                  if (next) setParams({ f: next });
-                }}
-              >
-                {failureIds.length
-                  ? `${failureIds.length} pump fail${failureIds.length === 1 ? '' : 's'}`
-                  : `${needYou} alert${needYou === 1 ? '' : 's'}`}
-                {' '}<ArrowRight size={13} />
-              </button>
-            )}
-            {(['failure', 'leak', 'wear'] as const).filter((s) => counts[s] > 0).map((s) => (
-              <span key={s} className="chip ghost" style={{ color: statusColor[s] }}>
-                <i className="dot" style={{ background: statusColor[s] }} /> {counts[s]} {statusLabel[s].toLowerCase()}
-              </span>
-            ))}
-          </div>
         </div>
 
         <div className="map-float map-float-tr">
@@ -710,6 +667,13 @@ function SystemLayer({ sys, station, live, hover, setHover, selected, failureId,
             )}
             {failed && !showHalo && (
               <circle r={(pin * 0.28) * inv} fill="none" stroke="var(--coral)" strokeWidth={2 * inv} opacity={0.7} style={{ pointerEvents: 'none' }} />
+            )}
+            {actPulseId === f.id && (
+              <circle
+                r={(pin * 0.55) * inv}
+                className="map-act-pulse"
+                style={{ pointerEvents: 'none' }}
+              />
             )}
             <MapSteam
               inv={inv}

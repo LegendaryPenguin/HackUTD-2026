@@ -60,4 +60,11 @@ export default defineConfig({
   // Bind IPv4 explicitly — on some Windows setups Vite only listens on [::1],
   // so http://127.0.0.1:5173 / localhost→IPv4 gets ERR_CONNECTION_REFUSED.
   server: { port: 5173, host: '127.0.0.1', strictPort: true },
+  preview: {
+    host: '127.0.0.1',
+    port: 4173,
+    strictPort: true,
+    // Cloudflare quick tunnels rewrite Host; allow any so live preview works.
+    allowedHosts: true,
+  },
 })

@@ -175,3 +175,14 @@ export const fadeUp = {
   exit: { opacity: 0, y: -6 },
   transition: { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number] },
 };
+
+/** Staggered entrance for ranked lists (alerts). */
+export function fadeUpAt(index: number) {
+  return {
+    ...fadeUp,
+    transition: {
+      ...fadeUp.transition,
+      delay: Math.min(index * 0.045, 0.28),
+    },
+  };
+}

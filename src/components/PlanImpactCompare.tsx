@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { fmt } from '../lib/model';
 import { planImpact } from '../lib/planImpact';
 import type { Dataset, FailureContext, PlanOption } from '../lib/types';
@@ -18,6 +19,7 @@ export function PlanImpactCompare({
   compact?: boolean;
 }) {
   const imp = planImpact(ctx, ds, plan);
+  const savingsShown = useCountUp(imp.savings, plan.label);
   const rows: { label: string; before: string; after: string; better?: 'after' | 'before' | 'neutral' }[] = [
     {
       label: 'Cost / loss',
@@ -52,7 +54,11 @@ export function PlanImpactCompare({
   ];
 
   return (
-    <div className={`plan-impact ${compact ? 'is-compact' : ''}`} aria-label="Before and after plan impact">
+    <div
+      key={plan.label}
+      className={`plan-impact ${compact ? 'is-compact' : ''}`}
+      aria-label="Before and after plan impact"
+    >
       <div className="plan-impact__head">
         <div>
           <div className="plan-impact__eyebrow">Before vs after</div>
@@ -61,7 +67,7 @@ export function PlanImpactCompare({
         {imp.savings > 0 && (
           <div className="plan-impact__save">
             <span>Saves</span>
-            <b>{fmt.money(imp.savings)}</b>
+            <b>{fmt.money(savingsShown)}</b>
           </div>
         )}
       </div>
@@ -118,17 +124,47 @@ function ImpactBar({
   format: (v: number) => string;
 }) {
   const max = Math.max(before, after, 1);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [before, after]);
   return (
     <div className="plan-impact__bar">
       <div className="plan-impact__bar-label">{label}</div>
       <div className="plan-impact__bar-track">
-        <div className="plan-impact__bar-fill is-before" style={{ width: `${(before / max) * 100}%` }} />
+        <div className="plan-impact__bar-fill is-before" style={{ width: ready ? `${(before / max) * 100}%` : '0%' }} />
         <span>{format(before)}</span>
       </div>
       <div className="plan-impact__bar-track">
-        <div className="plan-impact__bar-fill is-after" style={{ width: `${(after / max) * 100}%` }} />
+        <div className="plan-impact__bar-fill is-after" style={{ width: ready ? `${(after / max) * 100}%` : '0%' }} />
         <span>{format(after)}</span>
       </div>
     </div>
   );
+}
+
+/** Soft count-up when the selected plan changes. Respects reduced motion. */
+function useCountUp(target: number, key: string): number {
+  const [value, setValue] = useState(target);
+  useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || target <= 0) {
+      setValue(target);
+      return;
+    }
+    setValue(0);
+    const start = performance.now();
+    const dur = 480;
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - (1 - t) ** 3;
+      setValue(Math.round(target * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, key]);
+  return value;
 }
