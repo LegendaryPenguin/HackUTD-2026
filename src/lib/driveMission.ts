@@ -161,11 +161,122 @@ export function practiceMissions(points: DrivePoint[], systemId: string): DriveM
     });
 }
 
-export function gradeRun(sec: number, limit: number): { label: string; tone: 'mint' | 'aqua' | 'amber' | 'coral' } {
-  if (sec <= limit * 0.7) return { label: 'Beat the clock', tone: 'mint' };
-  if (sec <= limit) return { label: 'Inside window', tone: 'aqua' };
-  if (sec <= limit * 1.25) return { label: 'Late but delivered', tone: 'amber' };
-  return { label: 'Tank would’ve tripped', tone: 'coral' };
+export type RunStats = {
+  sec: number;
+  onRoadPct: number;
+  checkpointsHit: number;
+  checkpointsTotal: number;
+  alignedArrival: boolean;
+  peakSpeed: number;
+};
+
+export type Objective = {
+  id: string;
+  label: string;
+  done: boolean;
+  hint: string;
+};
+
+export type GradeResult = {
+  label: string;
+  tone: 'mint' | 'aqua' | 'amber' | 'coral';
+  stars: number;
+  score: number;
+  objectives: Objective[];
+};
+
+/** Grade a finished haul: time, route discipline, checkpoints, approach. */
+export function gradeRun(stats: RunStats, limit: number): GradeResult {
+  const onTime = stats.sec <= limit;
+  const fast = stats.sec <= limit * 0.72;
+  const routeClean = stats.onRoadPct >= 0.72;
+  const checks = stats.checkpointsTotal === 0 || stats.checkpointsHit >= stats.checkpointsTotal;
+  const approach = stats.alignedArrival;
+
+  const objectives: Objective[] = [
+    {
+      id: 'deliver',
+      label: 'Deliver to the tank pad',
+      done: true,
+      hint: 'Drive into the aqua ring',
+    },
+    {
+      id: 'clock',
+      label: onTime ? (fast ? 'Beat the training clock' : 'Inside the time window') : 'Missed the training clock',
+      done: onTime,
+      hint: `Window ${limit}s · you ${stats.sec.toFixed(1)}s`,
+    },
+    {
+      id: 'route',
+      label: routeClean ? 'Stayed on the lit roads' : 'Wandered off the lease roads',
+      done: routeClean,
+      hint: `${Math.round(stats.onRoadPct * 100)}% of the run on pavement`,
+    },
+    {
+      id: 'checks',
+      label: checks ? 'Hit every route checkpoint' : 'Skipped a checkpoint',
+      done: checks,
+      hint: `${stats.checkpointsHit} / ${stats.checkpointsTotal} gates`,
+    },
+    {
+      id: 'approach',
+      label: approach ? 'Clean lined-up approach' : 'Came in crooked',
+      done: approach,
+      hint: 'Face the tank when you enter the ring',
+    },
+  ];
+
+  let stars = 1;
+  if (onTime) stars++;
+  if (routeClean) stars++;
+  if (checks && approach) stars++;
+  if (fast && routeClean && checks) stars = 5;
+  stars = Math.min(5, Math.max(1, stars));
+
+  let score = Math.round(
+    400
+      + Math.max(0, (limit - stats.sec) * 12)
+      + stats.onRoadPct * 220
+      + (checks ? 120 : stats.checkpointsHit * 40)
+      + (approach ? 80 : 0)
+      + Math.min(60, stats.peakSpeed * 2),
+  );
+
+  let label = 'Delivered';
+  let tone: GradeResult['tone'] = 'aqua';
+  if (!onTime) {
+    label = 'Late delivery · tank would’ve tripped';
+    tone = 'coral';
+  } else if (stars >= 5) {
+    label = 'Perfect haul';
+    tone = 'mint';
+  } else if (stars >= 4) {
+    label = 'Clean night run';
+    tone = 'mint';
+  } else if (stars >= 3) {
+    label = 'Solid haul';
+    tone = 'aqua';
+  } else if (onTime) {
+    label = 'Inside window';
+    tone = 'amber';
+  }
+
+  if (stars < 5) {
+    const tip = !onTime ? 'Cut the clock first'
+      : !routeClean ? 'Hug the lit roads harder'
+        : !checks ? 'Sweep every amber gate'
+          : !approach ? 'Square up before the ring'
+            : !fast ? 'Push a cleaner, faster line'
+              : 'One more clean pass';
+    objectives.push({
+      id: 'next',
+      label: `Next star: ${tip}`,
+      done: false,
+      hint: `${stars}/5 · chase a cleaner grade`,
+    });
+  }
+
+  return { label, tone, stars, score, objectives };
 }
 
 export const COACH_STORAGE_KEY = 'avon-drive-coach-v1';

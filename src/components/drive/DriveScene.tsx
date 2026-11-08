@@ -2,7 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Stars } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { shortestPathIds, type DrivePoint, type DriveRoad } from '../../lib/driveMap';
+import { distToRoads, shortestPathIds, type DrivePoint, type DriveRoad } from '../../lib/driveMap';
 import type { DriveDifficulty } from '../../lib/driveMission';
 import type { CoachAllow } from './DriveCoach';
 
@@ -15,6 +15,8 @@ export type DriveTelemetry = {
   x: number;
   z: number;
   steered: boolean;
+  onRoad: boolean;
+  checkpointHits: string[];
 };
 
 type SceneProps = {
@@ -24,9 +26,12 @@ type SceneProps = {
   playing: boolean;
   difficulty: DriveDifficulty;
   allow: CoachAllow | 'all';
-  onArrive: () => void;
+  onArrive: (aligned: boolean) => void;
   onTelemetry: (t: DriveTelemetry) => void;
   resetKey: number;
+  checkpoints?: { id: string; x: number; z: number }[];
+  /** Next amber gate; nav arrow aims here before the beacon. */
+  navAim?: { x: number; z: number } | null;
 };
 
 function Ground() {
@@ -435,8 +440,95 @@ function normAngle(a: number) {
   return x;
 }
 
+function CheckpointGate({
+  cp,
+  hit,
+  label,
+  next,
+}: {
+  cp: { id: string; x: number; z: number };
+  hit: boolean;
+  label: string;
+  next: boolean;
+}) {
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!ring.current || hit) return;
+    ring.current.rotation.y = clock.elapsedTime * 1.2;
+    const pulse = next ? 1 + Math.sin(clock.elapsedTime * 4) * 0.08 : 1;
+    ring.current.scale.setScalar(pulse);
+  });
+  return (
+    <group position={[cp.x, 0, cp.z]}>
+      <mesh ref={ring} position={[0, 2.2, 0]}>
+        <torusGeometry args={[3.2, 0.14, 8, 28]} />
+        <meshBasicMaterial color={hit ? '#7dcea0' : next ? '#ffd27a' : '#e8c07a'} transparent opacity={hit ? 0.35 : 0.9} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+        <ringGeometry args={[2.6, 3.4, 28]} />
+        <meshBasicMaterial
+          color={hit ? '#7dcea0' : next ? '#ffd27a' : '#e8c07a'}
+          transparent
+          opacity={hit ? 0.25 : next ? 0.7 : 0.5}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {!hit && <pointLight position={[0, 3, 0]} intensity={next ? 14 : 8} distance={18} color="#e8c07a" />}
+      <Html position={[0, 5.2, 0]} center distanceFactor={30} style={{ pointerEvents: 'none' }}>
+        <div className={`drive-pin ${hit ? 'yard' : 'target'}`}>{hit ? 'Cleared' : label}</div>
+      </Html>
+    </group>
+  );
+}
+
+function NavArrow({
+  poseRef,
+  target,
+  nextGate,
+}: {
+  poseRef: React.MutableRefObject<{ x: number; z: number; yaw: number } | null>;
+  target: DrivePoint | null;
+  nextGate: { x: number; z: number } | null;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
+  useFrame(() => {
+    if (!group.current || !poseRef.current || !target) {
+      if (group.current) group.current.visible = false;
+      return;
+    }
+    const s = poseRef.current;
+    const aim = nextGate ?? { x: target.x, z: target.z };
+    const dist = Math.hypot(aim.x - s.x, aim.z - s.z);
+    if (dist < (nextGate ? 5 : 10)) {
+      group.current.visible = false;
+      return;
+    }
+    group.current.visible = true;
+    const bearing = Math.atan2(aim.x - s.x, aim.z - s.z);
+    const ahead = 8;
+    group.current.position.set(
+      s.x + Math.sin(bearing) * ahead,
+      2.6 + Math.sin(performance.now() * 0.004) * 0.2,
+      s.z + Math.cos(bearing) * ahead,
+    );
+    group.current.rotation.y = bearing;
+    if (mat.current) mat.current.color.set(nextGate ? '#e8c07a' : '#5ec8d8');
+  });
+  return (
+    <group ref={group}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.6, 1.7, 3]} />
+        <meshBasicMaterial ref={mat} color="#5ec8d8" />
+      </mesh>
+      <pointLight intensity={7} distance={14} color="#5ec8d8" />
+    </group>
+  );
+}
+
 function Truck({
   points,
+  roads,
   targetId,
   playing,
   difficulty,
@@ -444,22 +536,32 @@ function Truck({
   onArrive,
   onTelemetry,
   resetKey,
-}: Omit<SceneProps, 'roads'>) {
+  checkpoints = [],
+  poseRef,
+}: SceneProps & { poseRef: React.MutableRefObject<{ x: number; z: number; yaw: number } | null> }) {
   const group = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const keys = useRef({ f: false, b: false, l: false, r: false });
-  const state = useRef({ x: 0, z: 0, yaw: 0, speed: 0, arrived: false, steered: false, yawAtReset: 0 });
+  const state = useRef({
+    x: 0, z: 0, yaw: 0, speed: 0, arrived: false, steered: false, yawAtReset: 0,
+    hits: new Set<string>(),
+  });
   const camTarget = useRef(new THREE.Vector3());
   const lookAt = useRef(new THREE.Vector3());
   const telemAcc = useRef(0);
   const allowRef = useRef(allow);
   const diffRef = useRef(difficulty);
+  const roadsRef = useRef(roads);
+  const cpsRef = useRef(checkpoints);
   allowRef.current = allow;
   diffRef.current = difficulty;
+  roadsRef.current = roads;
+  cpsRef.current = checkpoints;
   const [ready, setReady] = useState(false);
+  const [hitIds, setHitIds] = useState<string[]>([]);
 
   const yard = points.find((p) => p.kind === 'yard');
-  const target = points.find((p) => p.id === targetId);
+  const target = points.find((p) => p.id === targetId) ?? null;
 
   useEffect(() => {
     const permitted = (code: string) => {
@@ -500,9 +602,14 @@ function Truck({
 
   useEffect(() => {
     if (!yard) return;
-    state.current = { x: yard.x, z: yard.z + 4, yaw: 0, speed: 0, arrived: false, steered: false, yawAtReset: 0 };
+    state.current = {
+      x: yard.x, z: yard.z + 4, yaw: 0, speed: 0, arrived: false, steered: false, yawAtReset: 0,
+      hits: new Set(),
+    };
+    poseRef.current = { x: yard.x, z: yard.z + 4, yaw: 0 };
+    setHitIds([]);
     setReady(true);
-  }, [yard, resetKey]);
+  }, [yard, resetKey, poseRef]);
 
   useFrame((_, dt) => {
     if (!group.current || !ready) return;
@@ -524,21 +631,40 @@ function Truck({
         s.yaw += steerAmt * d.steer * (s.speed / d.maxSpeed) * clamped;
         if (Math.abs(s.yaw - s.yawAtReset) > 0.35) s.steered = true;
       }
+      // soft scrub when cutting across scrub — rewards staying on lit roads
+      const roadDistNow = distToRoads(s.x, s.z, roadsRef.current);
+      if (roadDistNow > 4.2 && Math.abs(s.speed) > 0.5) {
+        s.speed *= Math.pow(0.55, clamped);
+      }
+
       s.x += Math.sin(s.yaw) * s.speed * clamped;
       s.z += Math.cos(s.yaw) * s.speed * clamped;
       s.x = THREE.MathUtils.clamp(s.x, -200, 200);
       s.z = THREE.MathUtils.clamp(s.z, -200, 200);
+
+      let newHit = false;
+      for (const cp of cpsRef.current) {
+        if (s.hits.has(cp.id)) continue;
+        if (Math.hypot(s.x - cp.x, s.z - cp.z) < 4.2) {
+          s.hits.add(cp.id);
+          newHit = true;
+        }
+      }
+      if (newHit) setHitIds([...s.hits]);
 
       if (target) {
         const dist = Math.hypot(s.x - target.x, s.z - target.z);
         if (dist < d.arriveR) {
           s.arrived = true;
           s.speed = 0;
-          onArrive();
+          const bearing = Math.atan2(target.x - s.x, target.z - s.z);
+          const aligned = Math.abs(normAngle(bearing - s.yaw)) < 0.55;
+          onArrive(aligned);
         }
       }
     }
 
+    poseRef.current = { x: s.x, z: s.z, yaw: s.yaw };
     group.current.position.set(s.x, 0, s.z);
     group.current.rotation.y = s.yaw;
 
@@ -553,6 +679,7 @@ function Truck({
       const bearing = target ? Math.atan2(target.x - s.x, target.z - s.z) : s.yaw;
       const aligned = Math.abs(normAngle(bearing - s.yaw)) < 0.4;
       const dist = target ? Math.hypot(s.x - target.x, s.z - target.z) : 0;
+      const roadDist = distToRoads(s.x, s.z, roadsRef.current);
       onTelemetry({
         speed: Math.abs(s.speed),
         dist,
@@ -562,36 +689,53 @@ function Truck({
         x: s.x,
         z: s.z,
         steered: s.steered,
+        onRoad: roadDist < 4.2,
+        checkpointHits: [...s.hits],
       });
     }
   });
 
   return (
-    <group ref={group}>
-      <mesh position={[0, 1.35, 0.9]} castShadow>
-        <boxGeometry args={[2.2, 1.5, 2.2]} />
-        <meshStandardMaterial color="#5ec8d8" metalness={0.35} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 1.45, -2.4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <cylinderGeometry args={[1.05, 1.05, 4.6, 16]} />
-        <meshStandardMaterial color="#2c3a44" metalness={0.55} roughness={0.32} />
-      </mesh>
-      <mesh position={[0, 0.55, -0.6]} castShadow>
-        <boxGeometry args={[2.0, 0.35, 6.2]} />
-        <meshStandardMaterial color="#121a20" metalness={0.4} roughness={0.6} />
-      </mesh>
-      {[
-        [1.05, 0.45, 1.4], [-1.05, 0.45, 1.4],
-        [1.05, 0.45, -1.2], [-1.05, 0.45, -1.2],
-        [1.05, 0.45, -3.4], [-1.05, 0.45, -3.4],
-      ].map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.45, 0.45, 0.35, 12]} />
-          <meshStandardMaterial color="#0a0e12" roughness={0.9} />
+    <>
+      {checkpoints.map((cp, i) => {
+        const hit = hitIds.includes(cp.id);
+        const next = !hit && checkpoints.findIndex((c) => !hitIds.includes(c.id)) === i;
+        return (
+          <CheckpointGate
+            key={cp.id}
+            cp={cp}
+            hit={hit}
+            next={next}
+            label={`Gate ${i + 1}/${checkpoints.length}`}
+          />
+        );
+      })}
+      <group ref={group}>
+        <mesh position={[0, 1.35, 0.9]} castShadow>
+          <boxGeometry args={[2.2, 1.5, 2.2]} />
+          <meshStandardMaterial color="#5ec8d8" metalness={0.35} roughness={0.4} />
         </mesh>
-      ))}
-      <spotLight position={[0, 1.4, 2.2]} angle={0.45} penumbra={0.5} intensity={28} distance={45} color="#dff6ff" castShadow />
-    </group>
+        <mesh position={[0, 1.45, -2.4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[1.05, 1.05, 4.6, 16]} />
+          <meshStandardMaterial color="#2c3a44" metalness={0.55} roughness={0.32} />
+        </mesh>
+        <mesh position={[0, 0.55, -0.6]} castShadow>
+          <boxGeometry args={[2.0, 0.35, 6.2]} />
+          <meshStandardMaterial color="#121a20" metalness={0.4} roughness={0.6} />
+        </mesh>
+        {[
+          [1.05, 0.45, 1.4], [-1.05, 0.45, 1.4],
+          [1.05, 0.45, -1.2], [-1.05, 0.45, -1.2],
+          [1.05, 0.45, -3.4], [-1.05, 0.45, -3.4],
+        ].map(([x, y, z], i) => (
+          <mesh key={i} position={[x, y, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.45, 0.45, 0.35, 12]} />
+            <meshStandardMaterial color="#0a0e12" roughness={0.9} />
+          </mesh>
+        ))}
+        <spotLight position={[0, 1.4, 2.2]} angle={0.45} penumbra={0.5} intensity={28} distance={45} color="#dff6ff" castShadow />
+      </group>
+    </>
   );
 }
 
@@ -602,6 +746,7 @@ function WorldInner(props: SceneProps) {
   const disposal = props.points.find((p) => p.kind === 'disposal');
   const target = props.points.find((p) => p.id === props.targetId) ?? null;
   const fog = props.difficulty;
+  const poseRef = useRef<{ x: number; z: number; yaw: number } | null>(null);
 
   const activeIds = useMemo(() => {
     if (!yard || !props.targetId) return new Set<string>();
@@ -630,16 +775,8 @@ function WorldInner(props: SceneProps) {
         <TankPad key={t.id} point={t} isTarget={t.id === props.targetId} />
       ))}
       {target && <TargetBeacon point={target} />}
-      <Truck
-        points={props.points}
-        targetId={props.targetId}
-        playing={props.playing}
-        difficulty={props.difficulty}
-        allow={props.allow}
-        onArrive={props.onArrive}
-        onTelemetry={props.onTelemetry}
-        resetKey={props.resetKey}
-      />
+      <Truck {...props} poseRef={poseRef} />
+      <NavArrow poseRef={poseRef} target={target} nextGate={props.navAim ?? null} />
     </>
   );
 }

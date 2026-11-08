@@ -196,3 +196,67 @@ export function pickTarget(points: DrivePoint[], avoidId?: string): DrivePoint {
   const tanks = points.filter((p) => p.kind === 'tank' && p.id !== avoidId);
   return tanks[Math.floor(Math.random() * tanks.length)] ?? points.find((p) => p.kind === 'tank')!;
 }
+
+/** Sample gate positions along the lit route (yard → target). */
+export function routeCheckpoints(
+  roads: DriveRoad[],
+  yardId: string,
+  targetId: string,
+  count = 2,
+): { id: string; x: number; z: number }[] {
+  const used = shortestPathIds(roads, yardId, targetId);
+  const segs = roads.filter((r) => used.has(r.id) && r.kind !== 'lease');
+  if (!segs.length) return [];
+  // order roughly by distance from yard
+  const yard = { x: 0, z: 0 };
+  const yardRoad = roads.find((r) => r.fromId === yardId || r.toId === yardId);
+  if (yardRoad) {
+    if (yardRoad.fromId === yardId) {
+      yard.x = yardRoad.from[0];
+      yard.z = yardRoad.from[1];
+    } else {
+      yard.x = yardRoad.to[0];
+      yard.z = yardRoad.to[1];
+    }
+  }
+  type Sample = { x: number; z: number; d: number };
+  const samples: Sample[] = [];
+  for (const r of segs) {
+    const len = Math.hypot(r.to[0] - r.from[0], r.to[1] - r.from[1]) || 1;
+    for (const t of [0.35, 0.65]) {
+      const x = r.from[0] + (r.to[0] - r.from[0]) * t;
+      const z = r.from[1] + (r.to[1] - r.from[1]) * t;
+      samples.push({ x, z, d: Math.hypot(x - yard.x, z - yard.z) + len * 0.01 });
+    }
+  }
+  samples.sort((a, b) => a.d - b.d);
+  const picked: { id: string; x: number; z: number }[] = [];
+  const minGap = 18;
+  for (const s of samples) {
+    if (picked.length >= count) break;
+    if (picked.some((p) => Math.hypot(p.x - s.x, p.z - s.z) < minGap)) continue;
+    picked.push({ id: `cp-${picked.length}`, x: s.x, z: s.z });
+  }
+  return picked;
+}
+
+/** Distance from point to nearest road centerline. */
+export function distToRoads(x: number, z: number, roads: DriveRoad[]): number {
+  let best = Infinity;
+  for (const r of roads) {
+    if (r.kind === 'lease') continue;
+    const ax = r.from[0];
+    const az = r.from[1];
+    const bx = r.to[0];
+    const bz = r.to[1];
+    const abx = bx - ax;
+    const abz = bz - az;
+    const len2 = abx * abx + abz * abz || 1;
+    let t = ((x - ax) * abx + (z - az) * abz) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const px = ax + abx * t;
+    const pz = az + abz * t;
+    best = Math.min(best, Math.hypot(x - px, z - pz));
+  }
+  return best;
+}

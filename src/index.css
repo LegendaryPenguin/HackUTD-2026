@@ -1860,6 +1860,144 @@ a:hover { color: var(--lagoon-2); }
   0%, 100% { box-shadow: 0 0 14px rgba(94, 200, 216, 0.25); }
   50% { box-shadow: 0 0 28px rgba(94, 200, 216, 0.5); }
 }
+.drive-minimap {
+  position: absolute;
+  right: 18px;
+  bottom: 78px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.drive-minimap span {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.drive-obj-live {
+  position: absolute;
+  left: 16px;
+  top: 118px;
+  z-index: 8;
+  width: min(260px, calc(100vw - 180px));
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(6, 16, 24, 0.78);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+.drive-obj-live h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.drive-obj-live ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.drive-obj-live li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.drive-obj-live li.done { color: var(--mint); }
+.drive-obj-live li.now { color: var(--aqua-2); font-weight: 700; }
+.drive-obj-live li i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.drive-obj-live li.done i {
+  background: rgba(125, 206, 160, 0.2);
+  border-color: var(--mint);
+}
+.drive-gate-flash {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(232, 192, 122, 0.92);
+  color: #1a1408;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  animation: driveGateFlash 1.1s ease-out forwards;
+}
+@keyframes driveGateFlash {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); }
+  18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+.drive-stars {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin: 10px 0 4px;
+}
+.drive-obj-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drive-obj-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 13px;
+}
+.drive-obj-list li span {
+  width: 16px;
+  font-weight: 800;
+  color: var(--ink-3);
+}
+.drive-obj-list li.ok span { color: var(--mint); }
+.drive-obj-list li.miss { opacity: 0.75; }
+.drive-obj-list strong { display: block; color: var(--ink-0); font-size: 13px; }
+.drive-obj-list small { color: var(--ink-3); font-size: 11px; }
+.drive-finish-card .muted {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.drive-mission-card .drive-card-stars {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+}
 .drive-coach {
   position: absolute;
   left: 50%;
@@ -1995,6 +2133,9 @@ a:hover { color: var(--lagoon-2); }
   .drive-actions .btn { flex: 1; justify-content: center; }
   .drive-brief-grid { grid-template-columns: 1fr; }
   .drive-coach { bottom: 16px; }
+  .drive-obj-live { top: auto; bottom: 88px; left: 12px; width: min(220px, 55vw); }
+  .drive-minimap { right: 12px; bottom: 88px; transform: scale(0.9); transform-origin: bottom right; }
+  .drive-finish-card { max-height: calc(100vh - 48px); overflow: auto; }
 }
 
 /* ---------- Oil Tycoon — HackKU Island Adventure art vibe ---------- */
@@ -2032,9 +2173,18 @@ a:hover { color: var(--lagoon-2); }
   white-space: nowrap;
   box-shadow: 0 8px 22px rgba(58, 36, 24, 0.18);
 }
-.ty-pad-tag.hot {
+.ty-pad-tag.go {
   background: linear-gradient(135deg, #ffe8a3, #7dcea0);
   border-color: rgba(47, 158, 93, 0.45);
+  animation: tyPulseSoft 0.9s ease-in-out infinite;
+}
+.ty-world-pop {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: #2f9e5d;
+  text-shadow: 0 2px 0 #fff8ec, 0 0 12px rgba(245, 197, 66, 0.7);
+  white-space: nowrap;
 }
 
 .ty-top {
@@ -2066,15 +2216,24 @@ a:hover { color: var(--lagoon-2); }
   color: #3a2418;
   text-shadow: 0 2px 0 rgba(255, 248, 236, 0.55);
 }
-.ty-cash {
+.ty-earn-stack {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   pointer-events: auto;
-  min-width: 120px;
+}
+.ty-cash {
+  min-width: 128px;
   padding: 10px 14px;
   border-radius: 16px;
-  background: rgba(255, 248, 236, 0.9);
+  background: rgba(255, 248, 236, 0.92);
   border: 1px solid rgba(255, 139, 107, 0.35);
   box-shadow: 0 10px 28px rgba(58, 36, 24, 0.12);
   backdrop-filter: blur(10px);
+}
+.ty-cash.hot {
+  border-color: rgba(245, 197, 66, 0.7);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.25), 0 10px 28px rgba(58, 36, 24, 0.12);
 }
 .ty-cash span {
   display: block;
@@ -2088,11 +2247,44 @@ a:hover { color: var(--lagoon-2); }
   display: block;
   margin-top: 2px;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
   color: #2f9e5d;
+  letter-spacing: -0.02em;
 }
-.ty-cash strong.bump { animation: tyCashBump 0.35s ease; }
+.ty-ips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(58, 36, 24, 0.55);
+  border: 1px solid rgba(255, 248, 236, 0.2);
+  color: #fff8ec;
+}
+.ty-ips.live {
+  background: linear-gradient(160deg, rgba(47, 158, 93, 0.92), rgba(63, 195, 204, 0.88));
+  border-color: rgba(255, 248, 236, 0.35);
+  animation: tyPulseSoft 1.4s ease-in-out infinite;
+}
+.ty-ips strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ty-ips span {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: 0.85;
+}
 
 .ty-meter {
   position: absolute;
@@ -2134,9 +2326,9 @@ a:hover { color: var(--lagoon-2); }
   bottom: 28px;
   transform: translateX(-50%);
   z-index: 6;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-radius: 999px;
-  background: rgba(255, 248, 236, 0.88);
+  background: rgba(255, 248, 236, 0.9);
   border: 1px solid rgba(63, 195, 204, 0.35);
   box-shadow: 0 10px 28px rgba(58, 36, 24, 0.14);
   font-weight: 700;
@@ -2145,10 +2337,19 @@ a:hover { color: var(--lagoon-2); }
   pointer-events: none;
   max-width: min(520px, 92vw);
   text-align: center;
+  overflow: hidden;
 }
 .ty-prompt.live {
   background: linear-gradient(135deg, rgba(255, 232, 163, 0.95), rgba(125, 206, 160, 0.92));
   border-color: rgba(47, 158, 93, 0.4);
+}
+.ty-hold-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f5c542, #2f9e5d);
+  border-radius: 999px;
 }
 
 .ty-popup {
@@ -2320,6 +2521,10 @@ a:hover { color: var(--lagoon-2); }
   0% { transform: scale(1); }
   40% { transform: scale(1.14); color: #f5c542; }
   100% { transform: scale(1); }
+}
+@keyframes tyPulseSoft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 
 @media (max-width: 720px) {
