@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import type { Category } from '../lib/types';
 import { CATEGORY_LABEL, fmt } from '../lib/model';
 import { LeakIcon, PumpIcon, WearIcon } from './Icons';
+import { IndustrialCard } from './motion/IndustrialCard';
 
 export const catColor: Record<Category, 'coral' | 'amber' | 'violet'> = {
   pump_failure: 'coral',
@@ -11,9 +12,9 @@ export const catColor: Record<Category, 'coral' | 'amber' | 'violet'> = {
   pump_degradation: 'violet',
 };
 export const catHex: Record<Category, string> = {
-  pump_failure: 'var(--coral)',
-  pipeline_leak: 'var(--amber)',
-  pump_degradation: 'var(--violet)',
+  pump_failure: '#ff3131',
+  pipeline_leak: '#f4a261',
+  pump_degradation: '#a100ff',
 };
 
 export function CategoryChip({ cat, pulse }: { cat: Category; pulse?: boolean }) {
@@ -76,11 +77,11 @@ export function Confidence({ value }: { value: number }) {
 
 export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: string }) {
   return (
-    <div className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div className="muted" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase' }}>{label}</div>
+    <IndustrialCard className="pad" interactive={false} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>{label}</div>
       <div className="big num" style={{ color: tone }}>{value}</div>
       {sub && <div className="muted" style={{ fontSize: 12 }}>{sub}</div>}
-    </div>
+    </IndustrialCard>
   );
 }
 
@@ -98,10 +99,10 @@ export function Countdown({ hours, tripsAt }: { hours: number; tripsAt: number |
 
 export function Section({ title, right, children }: { title: ReactNode; right?: ReactNode; children: ReactNode }) {
   return (
-    <section className="card pad">
+    <IndustrialCard className="pad" interactive={false}>
       <h3 className="card-title">{title}{right && <span className="muted">{right}</span>}</h3>
       {children}
-    </section>
+    </IndustrialCard>
   );
 }
 

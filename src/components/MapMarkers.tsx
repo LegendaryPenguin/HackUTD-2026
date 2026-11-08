@@ -14,8 +14,15 @@ import basinBg from '../assets/night-tide/backgrounds/midnight-permian-basin.png
 import desertBg from '../assets/night-tide/backgrounds/miniature-desert.png';
 import wireframeTide from '../assets/night-tide/backgrounds/wireframe-tide.jpg';
 
-/** System → thread station sticker (S1–S5 lettering is painted on the art). */
-export const systemThreads: Record<string, string> = {
+/**
+ * Station icon set toggle.
+ * - false → original Night Tide tanks + letter badge (active now)
+ * - true  → S1–S5 building stickers (previous set — flip this if you want them back)
+ */
+export const USE_BUILDING_STATION_ICONS = false;
+
+/** Building-thread stickers kept on disk so we can flip back instantly. */
+const buildingThreads: Record<string, string> = {
   S1: systemS1,
   S2: systemS2,
   S3: systemS3,
@@ -23,10 +30,16 @@ export const systemThreads: Record<string, string> = {
   S5: systemS5,
 };
 
+/** Active station art map (tank originals, or buildings when the flag is on). */
+export const systemThreads: Record<string, string> = USE_BUILDING_STATION_ICONS
+  ? buildingThreads
+  : { S1: tankArt, S2: tankArt, S3: tankArt, S4: tankArt, S5: tankArt };
+
 export function systemThreadArt(systemId: string): string {
+  if (!USE_BUILDING_STATION_ICONS) return tankArt;
   const key = systemId.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const m = key.match(/S[1-5]/);
-  return systemThreads[m?.[0] ?? key] ?? systemS1;
+  return buildingThreads[m?.[0] ?? key] ?? systemS1;
 }
 
 export const mapArt = {
@@ -35,7 +48,7 @@ export const mapArt = {
   pump: wellArt,
   disposal: disposalArt,
   truck: truckArt,
-  system: systemS1,
+  system: USE_BUILDING_STATION_ICONS ? systemS1 : tankArt,
 } as const;
 
 export const mapBackgrounds = {
@@ -81,14 +94,27 @@ export function MapPin({
   const scale = active ? 1.12 : 1;
   const shadowColor = glow ?? '#0a1c28';
   const badgeR = Math.max(9 * inv, s * 0.18);
-  const system = kind === 'system' && badge ? systemThreads[badge.toUpperCase()] : undefined;
-  const src = system ?? mapArt[kind];
-  // System stickers already carry S1–S5 — skip the duplicate chip.
-  const showBadge = Boolean(badge) && !system;
+  const systemKey = kind === 'system' && badge
+    ? (badge.toUpperCase().match(/S[1-5]/)?.[0] ?? badge.toUpperCase())
+    : undefined;
+  const useBuilding = USE_BUILDING_STATION_ICONS && Boolean(systemKey);
+  const system = useBuilding && systemKey ? buildingThreads[systemKey] : undefined;
+  const src = system ?? (kind === 'system' ? tankArt : mapArt[kind]);
+  // Buildings: cover baked S# glyphs with one plate. Tanks use the normal badge chip.
+  const showSystemPlate = Boolean(system && systemKey);
+  const showBadge = Boolean(badge) && !showSystemPlate;
   const half = s / 2;
   const isWide = Boolean(system);
-  // Soft shadow smears opaque letter art on system pins — keep those crisp.
   const useShadow = !system;
+  const imgH = isWide ? s * 0.72 : s;
+  const imgY = isWide ? -half * 0.72 : -half;
+  // Letter band sits mid-lower on Night Tide stickers — mask + single stamp.
+  const maskGradId = `sys-mask-${uid}`;
+  const coverW = Math.max(36 * inv, s * 0.62);
+  const coverH = Math.max(24 * inv, s * 0.34);
+  const coverY = imgY + imgH * 0.5;
+  const plateW = Math.max(28 * inv, s * 0.36);
+  const plateH = Math.max(14 * inv, s * 0.17);
   return (
     <g
       opacity={dim ? 0.32 : 1}
@@ -112,6 +138,13 @@ export function MapPin({
             />
           </filter>
         )}
+        {showSystemPlate && (
+          <linearGradient id={maskGradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(8,14,20)" stopOpacity="0" />
+            <stop offset="28%" stopColor="rgb(8,14,20)" stopOpacity="0.92" />
+            <stop offset="100%" stopColor="rgb(8,14,20)" stopOpacity="0.96" />
+          </linearGradient>
+        )}
       </defs>
       {(trouble || active) && glow && (
         <ellipse
@@ -127,20 +160,54 @@ export function MapPin({
       <image
         href={src}
         x={-half}
-        y={isWide ? -half * 0.72 : -half}
+        y={imgY}
         width={s}
-        height={isWide ? s * 0.72 : s}
+        height={imgH}
         filter={useShadow ? `url(#${filterId})` : undefined}
         preserveAspectRatio="xMidYMid meet"
         style={{ pointerEvents: 'none' }}
       />
+      {showSystemPlate && (
+        <g style={{ pointerEvents: 'none' }}>
+          <rect
+            x={-coverW / 2}
+            y={coverY}
+            width={coverW}
+            height={coverH}
+            rx={coverH * 0.2}
+            fill={`url(#${maskGradId})`}
+          />
+          <g transform={`translate(0, ${coverY + coverH * 0.58})`}>
+            <rect
+              x={-plateW / 2}
+              y={-plateH / 2}
+              width={plateW}
+              height={plateH}
+              rx={plateH * 0.35}
+              fill="rgba(6, 14, 22, 0.98)"
+              stroke={glow ?? 'rgba(132, 241, 180, 0.4)'}
+              strokeWidth={1.35 * inv}
+            />
+            <text
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={plateH * 0.7}
+              fontWeight={800}
+              fill="#f4f7fa"
+              style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}
+            >
+              {systemKey}
+            </text>
+          </g>
+        </g>
+      )}
       {showBadge && (
         <g transform={`translate(${s * 0.34}, ${s * 0.32})`} style={{ pointerEvents: 'none' }}>
           <circle r={badgeR} fill="rgba(6, 22, 34, 0.92)" stroke={glow ?? 'var(--aqua)'} strokeWidth={1.6 * inv} />
           <text
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={badge.length > 2 ? badgeR * 0.85 : badgeR * 1.05}
+            fontSize={(badge?.length ?? 0) > 2 ? badgeR * 0.85 : badgeR * 1.05}
             fontWeight={800}
             fill="var(--ink-0)"
             style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}

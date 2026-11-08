@@ -338,8 +338,8 @@
 }
 .rc-triage__chart {
   flex: 1 1 auto;
-  min-height: 148px;
-  max-height: 168px;
+  min-height: 112px;
+  max-height: 148px;
   border-radius: 12px;
   padding: 0;
   background: transparent;
@@ -395,8 +395,15 @@
   color: var(--rc-muted);
   line-height: 1.35;
 }
-.rc-triage__cta {
+.rc-flow__foot {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+.rc-triage__cta {
   width: 100%;
   border: 0;
   cursor: pointer;
@@ -577,7 +584,30 @@
 }
 .rc-link:hover { color: var(--rc-ink); }
 .rc-decide__actions {
-  margin-top: auto;
+  margin-top: 0;
+}
+
+.rc-depth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(132, 241, 180, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.rc-depth:hover {
+  color: var(--mint);
+  border-color: rgba(132, 241, 180, 0.4);
+  background: rgba(132, 241, 180, 0.08);
 }
 .rc-plan__actions {
   display: grid;
@@ -597,14 +627,61 @@
   justify-content: center;
   gap: 6px;
 }
-.rc-plan__actions .sim {
+.rc-plan__actions .sim,
+.rc-plan__actions a.sim {
   background: rgba(255, 255, 255, 0.1);
   color: var(--rc-ink);
   border: 1px solid rgba(94, 200, 216, 0.45);
+  text-decoration: none;
+  border-radius: 11px;
+  padding: 10px 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .rc-plan__actions .act {
   background: linear-gradient(180deg, #9ae4ef, #5ec8d8);
   color: #041018;
+}
+.rc-inspect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.rc-inspect__evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.rc-inspect__evidence li {
+  position: relative;
+  padding: 8px 10px 8px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--rc-ink);
+}
+.rc-inspect__evidence li::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0.85em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--rc-muted);
 }
 .rc-plan__actions .act.primary {
   background: linear-gradient(180deg, #9ae4ef, #5ec8d8);

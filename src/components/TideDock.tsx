@@ -1,13 +1,14 @@
 import { ChevronRight, RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
 import { detectEvents } from '../lib/detector';
+import { boundariesInRange, nextBoundaryAfter, shiftKindAt } from '../lib/crew';
 import { TimelineScrubber, type TimelineTick } from './TimelineScrubber';
 import type { Category, DetectedEvent } from '../lib/types';
 
-type CritTick = TimelineTick & { facilityId: string; category: Category; end?: number | null };
+type CritTick = TimelineTick & { facilityId?: string; category?: Category; end?: number | null; kind?: 'event' | 'shift' };
 
 const TONE: Record<Category, TimelineTick['tone']> = {
   pump_failure: 'danger',
@@ -33,12 +34,18 @@ function clockParts(unix: number) {
 /** Still visible on the scrubber at `now`: upcoming, or started and not yet resolved. */
 function activeAt(e: DetectedEvent, now: number): boolean {
   if (e.onset > now + 60) return true; // future
-  if (e.end != null && e.end <= now) return false; // resolved — drop
+  if (e.end != null && e.end <= now) return false; // resolved
   return e.onset <= now; // ongoing
+}
+
+function isShiftsPath(path: string) {
+  return path === '/crew' || path === '/shifts';
 }
 
 export function TideDock() {
   const nav = useNavigate();
+  const { pathname } = useLocation();
+  const shiftsMode = isShiftsPath(pathname);
   const { dataset, now, liveNow, isLive, setNow, resetNow } = useStore();
   const t0 = dataset?.telemetry.ts[0] ?? 0;
 
@@ -47,7 +54,7 @@ export function TideDock() {
     return detectEvents(dataset, liveNow);
   }, [dataset, liveNow]);
 
-  const ticks = useMemo<CritTick[]>(() => {
+  const eventTicks = useMemo<CritTick[]>(() => {
     return allEvents.filter((e) => activeAt(e, now)).map((e) => ({
       id: e.id,
       value: e.onset,
@@ -56,22 +63,59 @@ export function TideDock() {
       facilityId: e.facility,
       category: e.category,
       end: e.end,
+      kind: 'event' as const,
     }));
   }, [allEvents, now]);
 
-  /** Prefer pump failures — those open the concept triage → plans flow. */
+  /** Handoff markers only on Shifts. Everywhere else: problem ticks only. */
+  const shiftTicks = useMemo<CritTick[]>(() => {
+    if (!dataset || !shiftsMode) return [];
+    return boundariesInRange(t0, liveNow).map((b) => {
+      const to = shiftKindAt(b + 60);
+      const from = to === 'day' ? 'night' : 'day';
+      return {
+        id: `shift-${b}`,
+        value: b,
+        tone: 'success' as const,
+        label: `Handoff · ${from} → ${to} · ${fmt.dayTime(b)}`,
+        kind: 'shift' as const,
+      };
+    });
+  }, [dataset, t0, liveNow, shiftsMode]);
+
+  const ticks = useMemo(() => [...eventTicks, ...shiftTicks], [eventTicks, shiftTicks]);
+
   const nextCritical = useMemo(() => {
-    const upcoming = ticks.filter((t) => t.value > now + 60).sort((a, b) => a.value - b.value);
+    const upcoming = eventTicks.filter((t) => t.value > now + 60).sort((a, b) => a.value - b.value);
     return upcoming.find((t) => t.category === 'pump_failure') ?? upcoming[0] ?? null;
-  }, [ticks, now]);
+  }, [eventTicks, now]);
+
+  const nextHandoff = useMemo(() => {
+    if (!shiftsMode) return null;
+    const n = nextBoundaryAfter(now);
+    if (n > liveNow) return null;
+    return shiftTicks.find((t) => t.value === n) ?? {
+      id: `shift-${n}`,
+      value: n,
+      kind: 'shift' as const,
+      label: `Next handoff · ${fmt.dayTime(n)}`,
+    };
+  }, [shiftsMode, now, liveNow, shiftTicks]);
 
   if (!dataset) return null;
 
   const clock = clockParts(now);
 
-  const jumpCritical = (tick: CritTick) => {
+  const jumpTick = (tick: CritTick) => {
+    if (tick.kind === 'shift') {
+      setNow(Math.min(liveNow, tick.value));
+      if (!shiftsMode) nav('/crew');
+      return;
+    }
     setNow(Math.min(liveNow, tick.value + 300));
-    nav(`/?f=${encodeURIComponent(tick.facilityId)}`);
+    if (tick.facilityId && !shiftsMode) {
+      nav(`/?f=${encodeURIComponent(tick.facilityId)}`);
+    }
   };
 
   return (
@@ -94,26 +138,42 @@ export function TideDock() {
           ticks={ticks}
           tone="primary"
           formatValue={(u) => fmt.dayTime(u)}
-          labels={{ region: 'Week timeline — drag to set now' }}
+          labels={{
+            region: shiftsMode
+              ? 'Week timeline · handoffs and problems'
+              : 'Week timeline · drag to set now',
+          }}
           onValueChange={setNow}
           onTickJump={(tick) => {
             const full = ticks.find((t) => t.id === tick.id);
-            if (full) jumpCritical(full);
+            if (full) jumpTick(full);
             else setNow(Math.min(liveNow, tick.value + 300));
           }}
         />
       </div>
 
       <div className="tide-dock-actions">
-        <button
-          type="button"
-          className="btn primary sm"
-          disabled={!nextCritical}
-          title={nextCritical?.label ?? 'No later critical events'}
-          onClick={() => nextCritical && jumpCritical(nextCritical)}
-        >
-          Next critical <ChevronRight size={14} />
-        </button>
+        {shiftsMode ? (
+          <button
+            type="button"
+            className="btn primary sm"
+            disabled={!nextHandoff}
+            title={nextHandoff?.label ?? 'No later handoff'}
+            onClick={() => nextHandoff && jumpTick(nextHandoff)}
+          >
+            Next handoff <ChevronRight size={14} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn primary sm"
+            disabled={!nextCritical}
+            title={nextCritical?.label ?? 'No later critical events'}
+            onClick={() => nextCritical && jumpTick(nextCritical)}
+          >
+            Next critical <ChevronRight size={14} />
+          </button>
+        )}
         {!isLive && (
           <button type="button" className="btn sm" onClick={resetNow}>
             <RotateCcw size={13} /> Back to now

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Play, Send, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LineChart, Play, Send, X } from 'lucide-react';
 import { useStore } from '../state/store';
 import { fmt } from '../lib/model';
 import { systemThreadArt } from './MapMarkers';
@@ -13,7 +14,7 @@ import ReflectiveCard from './ReflectiveCard';
 
 /** Fixed ReflectiveCard footprint — Identify / Decide / Act share one size. */
 const CARD_W = 460;
-const CARD_H = 620;
+const CARD_H = 660;
 
 type Step = 'identify' | 'decide' | 'act';
 const STEPS: Step[] = ['identify', 'decide', 'act'];
@@ -26,9 +27,17 @@ const STEP_LABEL: Record<Step, string> = {
 /**
  * Night-guard flow: Identify → Decide → Act on a ReflectiveCard.
  */
-export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onClose: () => void }) {
+export function FacilityTriageCard({
+  live,
+  onClose,
+  initialStep = 'identify',
+}: {
+  live: LiveFacility;
+  onClose: () => void;
+  initialStep?: Step;
+}) {
   const { dataset, analysis, dispatch, startSimulate } = useStore();
-  const [step, setStep] = useState<Step>('identify');
+  const [step, setStep] = useState<Step>(initialStep);
   const [calc, setCalc] = useState<{ kind: 'nothing' | 'plan'; plan: PlanOption } | null>(null);
 
   const fail = analysis?.orderedFailures.find((c) => c.facility.id === live.f.id);
@@ -49,7 +58,6 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
     return match ?? options.find((o) => o.recommended) ?? options[0];
   }, [options, systemRec]);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-  const selected = options.find((o) => o.label === (selectedLabel ?? rec?.label)) ?? rec ?? options[0];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -61,12 +69,27 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
     if (rec?.label) setSelectedLabel(rec.label);
   }, [rec?.label]);
 
-  if (!dataset || !analysis || !fail || !selected) return null;
+  if (!dataset || !analysis || !fail) return null;
+
+  // Always show the glass card for an active failure — even if plan options are still empty.
+  const fallbackPlan: PlanOption = {
+    label: 'Wait for repair',
+    cost: fail.doNothingCost,
+    truckCost: 0,
+    shutInCost: 0,
+    trucks: 0,
+    trips: 0,
+    shutIns: [],
+    peakPct: fail.levelPct,
+    tripAt: isFinite(fail.hoursToLimit) ? Math.round(fail.hoursToLimit * 60) : null,
+    recommended: true,
+  };
+  const selected = options.find((o) => o.label === (selectedLabel ?? rec?.label)) ?? rec ?? options[0] ?? fallbackPlan;
 
   const onsetLabel = fmt.time(fail.event.onset);
   const leftLabel = isFinite(fail.hoursToLimit) ? fmt.dur(fail.hoursToLimit) : '—';
   const leftWords = isFinite(fail.hoursToLimit) ? hoursWords(fail.hoursToLimit) : '—';
-  const savedRec = Math.max(0, fail.doNothingCost - (rec?.cost ?? 0));
+  const savedRec = Math.max(0, fail.doNothingCost - (rec?.cost ?? fallbackPlan.cost));
   const savedSel = Math.max(0, fail.doNothingCost - selected.cost);
   const repairH = dataset.ops.expected_repair_hours.pump_failure;
   const stationName = `${live.f.system} station`;
@@ -77,9 +100,6 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
     : '';
 
   const actionSteps = buildActionSteps(selected, fail.facility.response_min, repairH, stationName);
-  const confidence = fail.event.confidence;
-  const confPct = Math.round(confidence * 100);
-  const confTone = confidence >= 0.85 ? 'high' : confidence >= 0.6 ? 'mid' : 'low';
   const systemArt = systemThreadArt(live.f.system);
 
   const simulate = () => {
@@ -100,6 +120,7 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 12 }}
+        style={{ margin: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         <ReflectiveCard
@@ -186,7 +207,7 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
 
                 {rec && (
                   <div className="rc-triage__chart">
-                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={112} compact />
+                    <PlanTraceChart ctx={fail} ds={dataset} plan={rec} height={100} compact />
                   </div>
                 )}
 
@@ -205,9 +226,14 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
                   )}
                 </div>
 
-                <button type="button" className="rc-triage__cta" onClick={() => setStep('decide')}>
-                  Next: Decide <ArrowRight size={16} />
-                </button>
+                <div className="rc-flow__foot">
+                  <button type="button" className="rc-triage__cta" onClick={() => setStep('decide')}>
+                    Next: Decide <ArrowRight size={16} />
+                  </button>
+                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
+                    <LineChart size={14} /> In-depth analysis
+                  </Link>
+                </div>
               </div>
             )}
 
@@ -237,28 +263,6 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
                   })}
                 </div>
 
-                <div className={`rc-confidence rc-confidence--${confTone}`}>
-                  <div className="rc-confidence__ring" style={{ ['--conf' as string]: confPct }}>
-                    <strong>{confPct}%</strong>
-                    <span>confidence</span>
-                  </div>
-                  <div className="rc-confidence__copy">
-                    <b>Signal confidence</b>
-                    <p>
-                      {confPct >= 85
-                        ? 'Readings strongly match a stopped pump — safe to commit a plan.'
-                        : confPct >= 60
-                          ? 'Likely a pump stop. Simulate if you want a second look before acting.'
-                          : 'Weaker signal — verify on the map or simulate before you act.'}
-                    </p>
-                    <div className="rc-confidence__bars" aria-hidden>
-                      {[0, 1, 2, 3, 4].map((i) => (
-                        <i key={i} className={confidence >= (i + 1) / 5 - 0.05 ? 'on' : ''} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
                 <div className="rc-triage__impact rc-triage__impact--row">
                   <div className="rc-triage__chip coral">
                     <div className="rc-triage__chip-kicker">Doing nothing</div>
@@ -276,13 +280,18 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
                   </div>
                 </div>
 
-                <div className="rc-plan__actions rc-decide__actions">
-                  <button type="button" className="sim" onClick={simulate}>
-                    <Play size={14} /> Simulate
-                  </button>
-                  <button type="button" className="act" onClick={() => setStep('act')}>
-                    Act <ArrowRight size={14} />
-                  </button>
+                <div className="rc-flow__foot">
+                  <div className="rc-plan__actions rc-decide__actions">
+                    <button type="button" className="sim" onClick={simulate}>
+                      <Play size={14} /> Simulate
+                    </button>
+                    <button type="button" className="act" onClick={() => setStep('act')}>
+                      Act <ArrowRight size={14} />
+                    </button>
+                  </div>
+                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
+                    <LineChart size={14} /> In-depth analysis
+                  </Link>
                 </div>
               </div>
             )}
@@ -317,13 +326,18 @@ export function FacilityTriageCard({ live, onClose }: { live: LiveFacility; onCl
                   {selected.shutInCost > 0 ? ` · shut-ins ${fmt.money(selected.shutInCost)}` : ''}
                 </div>
 
-                <div className="rc-plan__actions rc-decide__actions">
-                  <button type="button" className="sim" onClick={simulate}>
-                    <Play size={14} /> Simulate first
-                  </button>
-                  <button type="button" className="act primary" onClick={commit}>
-                    <Send size={14} /> Put into action
-                  </button>
+                <div className="rc-flow__foot">
+                  <div className="rc-plan__actions rc-decide__actions">
+                    <button type="button" className="sim" onClick={simulate}>
+                      <Play size={14} /> Simulate first
+                    </button>
+                    <button type="button" className="act primary" onClick={commit}>
+                      <Send size={14} /> Put into action
+                    </button>
+                  </div>
+                  <Link to="/alerts" className="rc-depth" onClick={onClose}>
+                    <LineChart size={14} /> In-depth analysis
+                  </Link>
                 </div>
               </div>
             )}

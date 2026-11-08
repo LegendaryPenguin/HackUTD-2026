@@ -52,5 +52,12 @@ function datasetServer(): Plugin {
 
 export default defineConfig({
   plugins: [react(), datasetServer()],
-  server: { port: 5173 },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  // Bind IPv4 explicitly — on some Windows setups Vite only listens on [::1],
+  // so http://127.0.0.1:5173 / localhost→IPv4 gets ERR_CONNECTION_REFUSED.
+  server: { port: 5173, host: '127.0.0.1', strictPort: true },
 })
