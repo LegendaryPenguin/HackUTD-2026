@@ -29,6 +29,10 @@ interface Store {
   dispatched: Record<string, DispatchedPlan>;
   dispatch: (eventId: string, plan?: PlanOption) => void;
   clearDispatch: (eventId: string) => void;
+  /** Preview a plan on the main map timeline (not committed). */
+  simulating: { eventId: string; facilityId: string; plan: PlanOption; onsetUnix: number } | null;
+  startSimulate: (eventId: string, plan: PlanOption) => void;
+  exitSimulate: () => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -41,6 +45,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [nowOverride, setNowOverride] = useState<number | null>(null);
   const [acked, setAcked] = useState<Set<string>>(new Set());
   const [dispatched, setDispatched] = useState<Record<string, DispatchedPlan>>({});
+  const [simulating, setSimulating] = useState<Store['simulating']>(null);
   const reqId = useRef(0);
 
   const load = useCallback((name: string) => {
@@ -55,6 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setNowOverride(null);
         setAcked(new Set());
         setDispatched({});
+        setSimulating(null);
         setLoading(null);
       })
       .catch((e) => {
@@ -75,6 +81,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setNowOverride(null);
         setAcked(new Set());
         setDispatched({});
+        setSimulating(null);
         setLoading(null);
       })
       .catch((e) => {
@@ -128,7 +135,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const events = detectEvents(dataset, now);
     const e = events.find((x) => x.id === eventId);
     if (!e || e.category !== 'pump_failure') return;
-    const ctx = failureContext(e, dataset, now);
     const sysPlan = planSystem(
       events.filter((x) => x.status === 'ongoing' && x.category === 'pump_failure' && x.system === e.system)
         .map((x) => failureContext(x, dataset, now)),
@@ -136,17 +142,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
     const chosen = plan ?? sysPlan.plans[eventId];
     if (!chosen) return;
+    const commitAt = simulating?.eventId === eventId ? simulating.onsetUnix : now;
+    const commitCtx = failureContext(e, dataset, commitAt);
     setDispatched((d) => ({
       ...d,
-      [eventId]: buildDispatchedPlan(ctx, dataset, { ...chosen, label: chosen.label }, now),
+      [eventId]: buildDispatchedPlan(commitCtx, dataset, { ...chosen, label: chosen.label }, commitAt),
     }));
-  }, [dataset, now]);
+    setSimulating(null);
+  }, [dataset, now, simulating]);
+
+  const startSimulate = useCallback((eventId: string, plan: PlanOption) => {
+    if (!dataset) return;
+    const events = detectEvents(dataset, liveNow);
+    const e = events.find((x) => x.id === eventId) ?? detectEvents(dataset, now).find((x) => x.id === eventId);
+    if (!e) return;
+    const onset = e.onset + 300;
+    setNowOverride(Math.min(onset, liveNow));
+    setSimulating({ eventId, facilityId: e.facility, plan, onsetUnix: onset });
+  }, [dataset, liveNow, now]);
+
+  const exitSimulate = useCallback(() => {
+    setSimulating(null);
+  }, []);
 
   const value: Store = {
     datasets, dataset, loading, error, load, loadFiles,
-    now, liveNow, isLive: nowOverride == null,
+    now, liveNow, isLive: nowOverride == null && !simulating,
     setNow: (u) => setNowOverride(u >= liveNow ? null : u),
-    resetNow: () => setNowOverride(null),
+    resetNow: () => { setNowOverride(null); },
     analysis,
     acked, ack: (id) => setAcked((s) => new Set(s).add(id)),
     dispatched,
@@ -156,6 +179,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       delete n[id];
       return n;
     }),
+    simulating,
+    startSimulate,
+    exitSimulate,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

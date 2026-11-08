@@ -89,13 +89,63 @@ export interface CaseSweep {
   };
 }
 
-function familyOf(o: PlanOption): ScenarioCompare['family'] {
+export function familyOf(o: PlanOption): ScenarioCompare['family'] {
   if (o.trucks === 0 && o.shutIns.length === 0) {
     return o.tripAt == null ? 'wait_safe' : 'do_nothing';
   }
   if (o.trucks > 0 && o.shutIns.length === 0) return 'trucks_only';
   if (o.trucks === 0 && o.shutIns.length > 0) return 'shut_in_only';
   return 'mixed';
+}
+
+const FAMILY_ORDER: ScenarioCompare['family'][] = [
+  'trucks_only',
+  'shut_in_only',
+  'mixed',
+  'wait_safe',
+  'do_nothing',
+];
+
+/** One cheapest valid plan per family — what the triage card should show. */
+export function representativePlans(options: PlanOption[]): PlanOption[] {
+  const best = new Map<ScenarioCompare['family'], PlanOption>();
+  for (const o of options) {
+    const fam = familyOf(o);
+    const prev = best.get(fam);
+    if (!prev || o.cost < prev.cost - 1e-6) best.set(fam, o);
+  }
+  const rec = options.find((o) => o.recommended) ?? [...options].sort((a, b) => a.cost - b.cost)[0];
+  const recFam = rec ? familyOf(rec) : null;
+  const out: PlanOption[] = [];
+  for (const fam of FAMILY_ORDER) {
+    const o = best.get(fam);
+    if (!o) continue;
+    // Prefer the system-recommended option inside its family when it wins.
+    const pick = rec && recFam === fam ? rec : o;
+    out.push({
+      ...pick,
+      label: friendlyPlanLabel(pick),
+      recommended: recFam === fam,
+    });
+  }
+  if (!out.some((o) => o.recommended) && out.length) out[0].recommended = true;
+  return out;
+}
+
+export function friendlyPlanLabel(o: PlanOption): string {
+  const fam = familyOf(o);
+  if (fam === 'do_nothing' || fam === 'wait_safe') return 'Do nothing';
+  if (fam === 'trucks_only') {
+    if (o.trucks === 1 && o.trips === 1) return 'Send 1 water truck';
+    return `Send ${o.trucks} truck${o.trucks > 1 ? 's' : ''} × ${o.trips} trip${o.trips > 1 ? 's' : ''}`;
+  }
+  if (fam === 'shut_in_only') {
+    const names = o.shutIns.map((s) => s.well.replace(/^S\d+_WELL_/, '')).join(', ');
+    return o.shutIns.length === 1 ? `Shut well ${names} early` : `Shut wells ${names} early`;
+  }
+  const truck = o.trucks ? `${o.trucks}×${o.trips} truck` : '';
+  const names = o.shutIns.map((s) => s.well.replace(/^S\d+_WELL_/, '')).join(', ');
+  return [truck, names ? `shut ${names}` : ''].filter(Boolean).join(' + ') || o.label;
 }
 
 function buildTimeline(ctx: FailureContext, ds: Dataset, opt: PlanOption, now: number): TimelineMark[] {
