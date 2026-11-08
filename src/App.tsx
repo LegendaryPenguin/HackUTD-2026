@@ -6,6 +6,7 @@ import Network from './pages/Network';
 import Plan from './pages/Plan';
 import Trends from './pages/Trends';
 import ShiftLog from './pages/ShiftLog';
+import Crew from './pages/Crew';
 
 export default function App() {
   return (
@@ -19,6 +20,8 @@ export default function App() {
             <Route path="alerts" element={<Alerts />} />
             <Route path="plan/:id?" element={<Plan />} />
             <Route path="trends" element={<Trends />} />
+            <Route path="crew" element={<Crew />} />
+            <Route path="shifts" element={<Crew />} />
             <Route path="log" element={<ShiftLog />} />
           </Route>
         </Routes>

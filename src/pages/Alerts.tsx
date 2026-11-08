@@ -99,7 +99,7 @@ export default function Alerts() {
                       <button className="btn primary sm" onClick={() => ack(e.id)}><Send size={13} /> Send inspector</button>
                     )}
                     <Link to={`/?f=${e.facility}`} className="btn ghost sm"><MapPin size={13} /> Facility</Link>
-                    <Link to={`/trends?preset=${e.category === 'pipeline_leak' ? 'leak' : 'pump'}&f=${e.facility}`} className="btn ghost sm">Trend <ArrowRight size={13} /></Link>
+                    <Link to={`/trends?preset=${e.category === 'pipeline_leak' ? 'leak' : e.category === 'pump_degradation' ? 'pump' : 'tank'}&f=${e.facility}&t=${e.onset}`} className="btn ghost sm">Trend <ArrowRight size={13} /></Link>
                   </div>
                 </motion.div>
               ))}

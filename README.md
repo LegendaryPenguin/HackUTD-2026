@@ -35,6 +35,7 @@ To try the real test cut, drop its three files in `data/test/` (it sorts last in
 - **Network** — the map. Pipelines animate when water is flowing, nodes are color-coded by problem, click a facility for its wells → tank → pump → pipeline schematic.
 - **Plan** — every option for a failure: trucks, shut-ins, their arrival times and peak tank level, with a replay chart. Trucks are planned jointly across a system; sliders let you ask "what if we had one more truck" or "what if the repair runs long".
 - **Trends** — any sensor on any asset, with detected problems shaded on the chart.
+- **Shifts** — one open handoff report (who is leaving / coming on, what to do now, what to watch). Step earlier/later across day·night switches; optional “who is on” tweak. Also at `/shifts`.
 - **Shift log** — plain-English handoff notes (copy button), the full event history, a cost report comparing what actually happened against the recommended plans, and `events.json` export.
 
 ## How it works

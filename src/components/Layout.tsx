@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, Bell, ChevronDown, ClipboardList, FolderOpen, Map as MapIcon, Menu, SlidersHorizontal, X } from 'lucide-react';
+import { Activity, Bell, ChevronDown, ClipboardList, FolderOpen, Map as MapIcon, Menu, SlidersHorizontal, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import emblem from '../assets/emblem.jpg';
 import { useStore } from '../state/store';
@@ -15,6 +15,7 @@ export function Layout() {
   const nFail = analysis?.orderedFailures.length ?? 0;
   const nOther = (analysis?.ongoing.length ?? 0) - nFail;
   const mapMode = location.pathname === '/' || location.pathname === '/network';
+  const trendsMode = location.pathname === '/trends';
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
@@ -26,7 +27,7 @@ export function Layout() {
   }, [menuOpen]);
 
   return (
-    <div className={`shell ${mapMode ? 'map-mode' : ''}`}>
+    <div className={`shell ${mapMode ? 'map-mode' : ''} ${trendsMode ? 'trends-mode' : ''}`}>
       <div className="tide-ambient" aria-hidden>
         <span className="orb a" />
         <span className="orb b" />
@@ -69,6 +70,9 @@ export function Layout() {
           </NavLink>
           <NavLink to="/plan" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
             <SlidersHorizontal size={18} /> <span className="lbl">Plan</span>
+          </NavLink>
+          <NavLink to="/crew" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+            <Users size={18} /> <span className="lbl">Shifts</span>
           </NavLink>
           <div className="nav-section">Review</div>
           <NavLink to="/trends" className={({ isActive }) => `navlink ${isActive ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
